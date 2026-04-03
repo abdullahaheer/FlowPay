@@ -1,0 +1,45 @@
+.button {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.button:active {
+    transform: scale(0.98);
+}
+
+.primary {
+    background-color: var(--secondary-green);
+    color: var(--white);
+}
+
+.primary:hover {
+    background-color: #45a045;
+    box-shadow: 0 4px 12px rgba(80, 175, 80, 0.3);
+}
+
+.secondary {
+    background-color: var(--accent-green-alpha);
+    color: var(--secondary-green);
+}
+
+.outline {
+    background: transparent;
+    border: 1px solid var(--light-grey);
+    color: var(--dark-grey);
+}
+
+.ghost {
+    background: transparent;
+    color: var(--medium-grey);
+}
+
+.fullWidth {
+    width: 100%;
+}
