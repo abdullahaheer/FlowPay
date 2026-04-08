@@ -1,4 +1,9 @@
-import React from 'react';
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { auth } from '@/lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { LayoutShell } from '@/components/Layout/LayoutShell';
 import styles from './Store.module.css';
 
@@ -12,6 +17,41 @@ const products = [
 ];
 
 export default function StorePage() {
+    const router = useRouter();
+    const [authenticated, setAuthenticated] = useState(false);
+
+    useEffect(() => {
+        // Firebase Auth Listener
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setAuthenticated(true);
+            } else {
+                // Agar login nahi hai, to redirect to /auth
+                router.push('/auth');
+            }
+        });
+
+        // Cleanup listener on unmount
+        return () => unsubscribe();
+    }, [router]);
+
+    // Verifying state UI
+    if (!authenticated) {
+        return (
+            <div style={{ 
+                height: '100vh', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                backgroundColor: '#001E3C',
+                color: 'white',
+                fontFamily: 'sans-serif'
+            }}>
+                Checking Permissions...
+            </div>
+        );
+    }
+
     return (
         <LayoutShell headerTitle="Marketplace">
             <div className={styles.grid}>

@@ -36,6 +36,16 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
+  // --- Helper: Generate Random Card & Account Details ---
+  const generateVaultDetails = () => {
+    // 16 digit card: 4444 (FlowPay bin) + 12 random digits
+    const cardNumber = "4444" + Math.floor(Math.random() * 1000000000000).toString().padStart(12, '0');
+    // Unique ID like FLP-XJ92
+    const accountNumber = "FLP-" + Math.random().toString(36).toUpperCase().substring(2, 7);
+    const cvv = Math.floor(100 + Math.random() * 900).toString();
+    return { cardNumber, accountNumber, cvv };
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password || (!isLogin && !name)) {
@@ -48,32 +58,44 @@ export default function AuthPage() {
       if (isLogin) {
         const res = await signInWithEmailAndPassword(auth, email.trim(), password);
         
-        // --- EMAIL VERIFICATION CHECK ---
         if (!res.user.emailVerified) {
           toast.error("Email not verified! Check your inbox.");
-          await signOut(auth); // Session clear karna zaroori hai
+          await signOut(auth);
           setLoading(false);
           return;
         }
 
-        toast.success("Welcome back to TapPay!");
+        toast.success("Welcome back to FlowPay!");
         setTimeout(() => router.push("/dashboard"), 1200); 
       } else {
         const res = await createUserWithEmailAndPassword(auth, email.trim(), password);
         
-        // --- SEND VERIFICATION EMAIL ---
+        // Email verification link bhejain
         await sendEmailVerification(res.user);
         
+        // Vault (Card & Account) details generate karein
+        const { cardNumber, accountNumber, cvv } = generateVaultDetails();
+
+        // Firestore mein user document create karein
         await setDoc(doc(db, "users", res.user.uid), {
+          uid: res.user.uid,
           name: name,
           email: email.trim(),
-          balance: 1099.25,
+          balance: 1099.25, // Starting balance
+          accountNumber: accountNumber,
+          cardDetails: {
+            number: cardNumber,
+            expiry: "12/28",
+            cvv: cvv,
+            status: "active",
+            cardHolder: name
+          },
           isVerified: false,
           createdAt: new Date()
         });
 
-        toast.success("Verification link sent! Verify and then Login.");
-        setIsLogin(true); // Signup ke baad Login tab par bhej dein
+        toast.success("Vault Created! Verify email to access your card.");
+        setIsLogin(true); 
       }
     } catch (err) {
       const error = err as FirebaseError;
@@ -86,10 +108,10 @@ export default function AuthPage() {
     }
   };
 
-  // Type-safe Styles
+  // --- Styles ---
   const styles: { [key: string]: React.CSSProperties } = {
     wrapper: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', width: '100%', backgroundColor: '#001E3C', padding: '20px', boxSizing: 'border-box', fontFamily: 'sans-serif' },
-    card: { width: '100%', maxWidth: '400px', backgroundColor: 'white', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: 'none' },
+    card: { width: '100%', maxWidth: '400px', backgroundColor: 'white', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' },
     header: { padding: '40px 20px 20px', textAlign: 'center' },
     logoBox: { background: '#4CAF50', width: '60px', height: '60px', borderRadius: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '15px', boxShadow: '0 8px 16px rgba(76, 175, 80, 0.2)' },
     formArea: { padding: '20px 30px 40px' },
@@ -105,7 +127,6 @@ export default function AuthPage() {
     flex: 1, padding: '10px', border: 'none', borderRadius: '10px', cursor: 'pointer',
     backgroundColor: active ? 'white' : 'transparent',
     fontWeight: '600', color: active ? '#001E3C' : '#6B7280',
-    boxShadow: active ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
     transition: '0.3s'
   });
 
@@ -116,7 +137,7 @@ export default function AuthPage() {
         <div style={styles.header}>
           <div style={styles.logoBox}><Wallet color="white" size={32} /></div>
           <h2 style={{ margin: 0, color: '#001E3C', fontSize: '26px', fontWeight: 'bold' }}>FlowPay</h2>
-          <p style={{ margin: '5px 0 0', color: '#6B7280', fontSize: '14px' }}>Secure Digital Banking</p>
+          <p style={{ margin: '5px 0 0', color: '#6B7280', fontSize: '14px' }}>Your Secure Digital Vault</p>
         </div>
 
         <div style={styles.formArea}>
@@ -129,13 +150,13 @@ export default function AuthPage() {
             {!isLogin && (
               <div style={styles.inputWrapper}>
                 <User style={styles.iconLeft} size={20} />
-                <input type="text" placeholder="Full Name" style={styles.input} onChange={(e) => setName(e.target.value)} required autoComplete="off" />
+                <input type="text" placeholder="Full Name" style={styles.input} onChange={(e) => setName(e.target.value)} required />
               </div>
             )}
             
             <div style={styles.inputWrapper}>
               <Mail style={styles.iconLeft} size={20} />
-              <input type="email" placeholder="Email Address" style={styles.input} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" name="tap-auth-email" />
+              <input type="email" placeholder="Email Address" style={styles.input} onChange={(e) => setEmail(e.target.value)} required />
             </div>
 
             <div style={styles.inputWrapper}>
@@ -146,7 +167,6 @@ export default function AuthPage() {
                 style={styles.input} 
                 onChange={(e) => setPassword(e.target.value)} 
                 required 
-                autoComplete="new-password" 
               />
               <div onClick={() => setShowPassword(!showPassword)} style={styles.iconRight}>
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -154,10 +174,11 @@ export default function AuthPage() {
             </div>
 
             <button 
+              type="submit"
               style={{...styles.submitBtn, opacity: loading ? 0.7 : 1}} 
               disabled={loading}
             >
-              {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Sign In' : 'Create Account')}
+              {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Sign In' : 'Create Vault')}
             </button>
           </form>
         </div>
