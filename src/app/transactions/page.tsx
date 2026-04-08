@@ -151,7 +151,7 @@ export default function TransactionsPage() {
                             ))}
                         </div>
                     ) : (
-                        <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.5 }}>
+                        <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.5, color: '#4CAF50'}}>
                             <p>No transactions yet</p>
                         </div>
                     )}
