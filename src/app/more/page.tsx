@@ -76,7 +76,7 @@ export default function MorePage() {
     }
 
     return (
-        <LayoutShell headerTitle="More Settings">
+        <LayoutShell >
             <div className={styles.menuList}>
                 {menuItems.map((item) => (
                     <div

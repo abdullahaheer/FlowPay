@@ -1,27 +1,37 @@
 "use client";
+
 import React, { useEffect, useState } from 'react';
 import { LayoutShell } from '@/components/Layout/LayoutShell';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { User, Mail, Hash, ShieldCheck, Eye, EyeOff, Loader2, CreditCard } from 'lucide-react';
+import Image from 'next/image';
+import { 
+  Loader2, 
+  Wallet,
+  Phone,
+  MapPin,
+  Calendar,
+  IdCard,
+  ShieldCheck,
+  CircleUserRound,
+  Mail
+} from 'lucide-react';
 
 interface UserData {
     name: string;
     email: string;
     balance: number;
     accountNumber: string;
-    cardDetails: {
-        number: string;
-        expiry: string;
-        cvv: string;
-        status: string;
-    };
+    phone: string;
+    cnic: string;
+    city: string;
+    dob: string;
 }
 
 export default function ProfilePage() {
     const [userData, setUserData] = useState<UserData | null>(null);
-    const [showFullDetails, setShowFullDetails] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (user) => {
@@ -31,142 +41,130 @@ export default function ProfilePage() {
                     if (snap.exists()) {
                         setUserData(snap.data() as UserData);
                     }
+                    setLoading(false);
                 });
                 return () => unsubscribeSnap();
+            } else {
+                setLoading(false);
             }
         });
         return () => unsub();
     }, []);
 
-    if (!userData) return (
-        <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000D1A', color: 'white' }}>
-            <Loader2 className="animate-spin" />
-        </div>
-    );
+    if (loading) {
+        return (
+            <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#020617', color: 'white' }}>
+                <Loader2 className="animate-spin" size={30} style={{ color: '#22C55E' }} />
+            </div>
+        );
+    }
 
-    const formatCard = (num: string, show: boolean) => {
-        const clean = num.replace(/\s/g, '');
-        if (!show) return `••••  ••••  ••••  ${clean.slice(-4)}`;
-        return clean.replace(/(\d{4})/g, '$1  ').trim();
-    };
+    if (!userData) return null;
 
     return (
-        <div style={{ backgroundColor: '#000D1A', minHeight: '100vh' }}>
-            <LayoutShell headerTitle="FlowPay Card" showBack>
-                <div style={{ padding: '20px' }}>
+        // Deep Navy Blue Background (Match theme image)
+        <div style={{ backgroundColor: '#0A1A2F', minHeight: '100vh', color: '#FFFFFF', fontFamily: 'sans-serif' }}>
+            <LayoutShell headerTitle="Profile Details" showBack>
+                <div style={{ padding: '24px', maxWidth: '480px', margin: '0 auto' }}>
                     
-                    {/* --- FINAL GREEN CARD DESIGN --- */}
-                    <div style={{
-                        background: 'linear-gradient(135deg, #0d1d12 0%, #1a3a21 100%)', 
-                        borderRadius: '24px',
-                        padding: '25px',
-                        height: '225px',
-                        position: 'relative',
-                        boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
-                        marginBottom: '30px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: '#FFFFFF',
-                        overflow: 'hidden'
+                    {/* --- HEADER LOGO SECTION --- */}
+                    <div style={{ 
+                        textAlign: 'center', 
+                        marginBottom: '32px',
+                        background: '#388E3C', // FlowPay Green from image
+                        borderRadius: '20px',
+                        padding: '16px'
                     }}>
-                        {/* Top Section: Branding & Type */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '18px', fontWeight: 'bold', letterSpacing: '1px', color: '#4CAF50' }}>FlowPay</span>
-                                <span style={{ fontSize: '10px', opacity: 0.6 }}>Virtual Debit Card</span>
-                            </div>
-                            <div style={{ position: 'relative', width: '35px', height: '20px' }}>
-                                <div style={{ position: 'absolute', width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', left: 0 }}></div>
-                                <div style={{ position: 'absolute', width: '22px', height: '22px', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', right: 0 }}></div>
-                            </div>
-                        </div>
-
-                        {/* Middle Section: Card Number */}
-                        <div style={{ 
-                            fontSize: '22px', 
-                            letterSpacing: '3px', 
-                            fontFamily: 'monospace', 
-                            fontWeight: 'bold',
-                            color: '#FFFFFF',
-                            textAlign: 'center',
-                            margin: '10px 0'
-                        }}>
-                            {formatCard(userData.cardDetails.number, showFullDetails)}
-                        </div>
-
-                        {/* Bottom Section: Name & Expiry */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                <span style={{ fontSize: '9px', opacity: 0.6, textTransform: 'uppercase' }}>Card Holder</span>
-                                <span style={{ fontSize: '14px', fontWeight: '600', letterSpacing: '0.5px' }}>{userData.name.toUpperCase()}</span>
-                                
-                                <button 
-                                    onClick={() => setShowFullDetails(!showFullDetails)}
-                                    style={{
-                                        background: 'rgba(255,255,255,0.1)',
-                                        border: 'none',
-                                        borderRadius: '8px',
-                                        color: '#FFFFFF',
-                                        padding: '5px 10px',
-                                        fontSize: '10px',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '5px',
-                                        marginTop: '10px',
-                                        width: 'fit-content'
-                                    }}
-                                >
-                                    {showFullDetails ? <EyeOff size={12} /> : <Eye size={12} />}
-                                    {showFullDetails ? "Hide Details" : "View Details"}
-                                </button>
-                            </div>
-
-                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                    <span style={{ fontSize: '8px', opacity: 0.6 }}>EXPIRY</span>
-                                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>{userData.cardDetails.expiry}</span>
-                                </div>
-                                <span style={{ fontStyle: 'italic', fontWeight: '900', fontSize: '20px' }}>VISA</span>
-                            </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                            <Image 
+                                src="/logo.png" // Logo from your public path
+                                alt="FlowPay Logo" 
+                                width={40} 
+                                height={40} 
+                                style={{ borderRadius: '8px' }}
+                            />
+                            <h1 style={{ color: 'white', fontSize: '24px', fontWeight: '800', margin: 0 }}>FlowPay</h1>
                         </div>
                     </div>
 
-                    {/* --- DETAILS LIST --- */}
+                   
+                    {/* --- FINANCIAL INFORMATION BOX (FlowPay Green) --- */}
+                    <div style={{
+                        background: 'linear-gradient(135deg, #2D6A4F 0%, #1B4332 100%)', // FlowPay Dark Green gradient
+                        padding: '24px',
+                        borderRadius: '24px',
+                        marginBottom: '32px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 10px 20px rgba(0,0,0,0.3)'
+                    }}>
+                        <div>
+                            {/* White Text */}
+                            <p style={{ fontSize: '12px', color: '#A7C957', fontWeight: '600', textTransform: 'uppercase', marginBottom: '8px' }}>AVAILABLE FUNDS</p>
+                            <h3 style={{ fontSize: '30px', fontWeight: '900', margin: 0, color: '#FFFFFF' }}>
+                                <span style={{ fontSize: '18px', color: '#D8E2DC', fontWeight: '400', marginRight: '4px' }}>PKR</span>
+                                {userData.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </h3>
+                        </div>
+                        <Wallet size={35} style={{ color: '#FFFFFF', opacity: 0.6 }} />
+                    </div>
+
+                    {/* --- DETAILED INFORMATION LIST (Pure Dark Theme) --- */}
+                    <p style={{ fontSize: '14px', fontWeight: '700', color: '#A3B18A', marginBottom: '16px', marginLeft: '6px' }}>ACCOUNT INFORMATION</p>
+                    
                     <div style={{ 
-                        background: '#0a1622', 
+                        background: '#0A2540', // Darker navy blue box from image services
                         borderRadius: '24px', 
                         padding: '8px',
-                        border: '1px solid rgba(255,255,255,0.05)' 
+                        border: '1px solid rgba(255, 255, 255, 0.05)'
                     }}>
-                        <DetailRow icon={<User size={18}/>} label="Full Name" value={userData.name} />
-                        <DetailRow icon={<Hash size={18}/>} label="FlowPay ID" value={userData.accountNumber} />
-                        <DetailRow icon={<CreditCard size={18}/>} label="Wallet Balance" value={`${userData.balance.toLocaleString()} PKR`} />
-                        
-                        {showFullDetails && (
-                            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: '5px', paddingTop: '5px' }}>
-                                <DetailRow icon={<ShieldCheck size={18}/>} label="CVV Security Code" value={userData.cardDetails.cvv} />
-                                <DetailRow icon={<Mail size={18}/>} label="Registered Email" value={userData.email} />
-                            </div>
-                        )}
+                        {/* DetailRow has only white text and green icon backgrounds */}
+                       <DetailRow icon={<CircleUserRound size={18}/>} label="Legal Name" value={userData.name} />
+    
+    {/* --- Added Email Row --- */}
+    <DetailRow icon={<Mail size={18}/>} label="Email Address" value={userData.email} />
+    
+    <DetailRow icon={<Phone size={18}/>} label="Mobile Number" value={userData.phone || "---"} />
+    <DetailRow icon={<IdCard size={18}/>} label="CNIC Number" value={userData.cnic || "---"} />
+    <DetailRow icon={<MapPin size={18}/>} label="City" value={userData.city || "---"} />
+    <DetailRow icon={<Calendar size={18}/>} label="Date of Birth" value={userData.dob || "---"} />
+    <DetailRow icon={<ShieldCheck size={18}/>} label="Account Status" value="LEVEL 1 VERIFIED" isLast />
                     </div>
+
                 </div>
             </LayoutShell>
         </div>
     );
 }
 
-function DetailRow({ icon, label, value }: { icon: React.ReactNode, label: string, value: string }) {
+// --- Detailed Row Component (White Text Only) ---
+function DetailRow({ icon, label, value, isLast }: { icon: React.ReactNode, label: string, value: string, isLast?: boolean }) {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', padding: '18px 15px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-            <div style={{ marginRight: '15px', color: '#4CAF50', background: 'rgba(76, 175, 80, 0.1)', padding: '10px', borderRadius: '12px' }}>
+        <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            padding: '16px 15px', 
+            borderBottom: isLast ? 'none' : '1px solid rgba(255, 255, 255, 0.03)' 
+        }}>
+            {/* Green Icon Background */}
+            <div style={{ 
+                marginRight: '16px', 
+                color: '#66FF66', // Neon Green from image icons
+                background: 'rgba(76, 175, 80, 0.15)', 
+                padding: '10px', 
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
                 {icon}
             </div>
             <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '10px', margin: 0, color: '#6B7280', textTransform: 'uppercase', fontWeight: 'bold' }}>{label}</p>
-                <p style={{ margin: '2px 0 0', fontWeight: '500', fontSize: '15px', color: '#FFFFFF' }}>{value}</p>
+                {/* Gray Label Text */}
+                <p style={{ fontSize: '10px', margin: 0, color: '#9CA3AF', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.5px' }}>{label}</p>
+                {/* Pure White Text for data */}
+                <p style={{ margin: '3px 0 0', fontWeight: '600', fontSize: '14px', color: '#FFFFFF' }}>{value}</p>
             </div>
         </div>
     );
