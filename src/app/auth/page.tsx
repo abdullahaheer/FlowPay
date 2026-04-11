@@ -65,7 +65,6 @@ export default function AuthPage() {
           return;
         }
 
-        toast.success("Welcome back to FlowPay!");
         setTimeout(() => router.push("/dashboard"), 1200); 
       } else {
         const res = await createUserWithEmailAndPassword(auth, email.trim(), password);

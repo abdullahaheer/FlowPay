@@ -114,3 +114,23 @@ ul {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
+
+/* Sab elements se scrollbar hide karne ke liye (Sab se behtreen hal) */
+html, body {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+}
+
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+/* Specific elements ko target karne ke liye */
+* {
+    scrollbar-width: none !important;
+}
+
+*::-webkit-scrollbar {
+    display: none !important;
+}

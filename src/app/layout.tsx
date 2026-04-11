@@ -1,4 +1,6 @@
+
 import "./globals.css";
+import { Toaster } from 'react-hot-toast';
 
 export const metadata = {
   title: "FlowPay",
@@ -12,7 +14,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+      </head>
       <body>
+        <Toaster position="top-center" />
         {children}
       </body>
     </html>

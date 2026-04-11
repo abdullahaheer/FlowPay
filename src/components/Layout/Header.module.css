@@ -1,24 +1,24 @@
+/* --- Header Base --- */
 .header {
+    height: 70px;
+    background: linear-gradient(135deg, #4CAF50, #2d5a2d);
     display: flex;
+    align-items: center;
     justify-content: space-between;
-    align-items: center;
-    padding: var(--spacing-md) 0;
-    background: transparent;
-    width: 100%;
-    margin-bottom: var(--spacing-lg);
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    margin-bottom: 20px;
 }
 
-@media (min-width: 1024px) {
-    .header {
-        padding: var(--spacing-lg) 0;
-    }
-}
-
-.left,
-.right {
-    width: 40px;
+.left, .right {
+    width: 45px;
     display: flex;
     align-items: center;
+    position: relative;
 }
 
 .center {
@@ -28,47 +28,204 @@
 }
 
 .title {
-    font-size: 24px;
+    font-size: 18px;
     font-weight: 700;
-    color: var(--dark-grey);
+    color: white;
+    margin: 0;
 }
 
-@media (max-width: 1023px) {
-    .title {
-        font-size: 18px;
-        color: var(--white);
-    }
-}
-
-.iconButton {
+/* --- Buttons (White Circles) --- */
+.iconButton, .profileBtn {
     width: 40px;
     height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
-    color: var(--dark-grey);
-    background: var(--white);
+    background: #FFFFFF;
+    color: #1a1a1a;
+    border: none;
     border-radius: 50%;
-    box-shadow: var(--shadow-sm);
-    transition: all 0.2s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
 }
 
-@media (max-width: 1023px) {
-    .iconButton {
-        color: var(--white);
-        background: transparent;
-        box-shadow: none;
-    }
+.iconButton:hover {
+    transform: translateY(-2px);
+    background: #fdfdfd;
 }
 
-.profile {
-    width: 36px;
-    height: 36px;
-    background: var(--white);
+.profileIcon {
+    color: #4CAF50;
+}
+
+/* --- Notification Badge --- */
+.badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #FF4D4D;
+    color: white;
+    font-size: 10px;
+    font-weight: 800;
+    min-width: 18px;
+    height: 18px;
     border-radius: 50%;
+    border: 2px solid #4CAF50; /* Match header green */
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+}
+
+/* --- Dropdowns --- */
+.dropdown, .profileDropdown {
+    position: absolute;
+    top: 55px;
+    background: #0a1622;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    animation: slideIn 0.25s ease-out;
+    z-index: 1001;
+}
+
+.dropdown { right: 0; width: 300px; }
+.profileDropdown { left: 0; width: 260px; }
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Notification Items --- */
+.list { max-height: 400px; overflow-y: auto; }
+
+.item {
+    padding: 15px;
+    display: flex;
+    gap: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.unread { background: rgba(76, 175, 80, 0.08); }
+
+.iconBox { margin-top: 3px; }
+
+.receiveIcon, .transferIcon, .requestIcon, .systemIcon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.receiveIcon { background: rgba(76, 175, 80, 0.15); color: #4CAF50; }
+.transferIcon { background: rgba(255, 75, 75, 0.15); color: #FF4B4B; }
+.requestIcon { background: rgba(255, 193, 7, 0.15); color: #FFC107; }
+.systemIcon { background: rgba(156, 163, 175, 0.15); color: #9CA3AF; }
+
+.itemContent { flex: 1; }
+.itemTitle { font-size: 13px; font-weight: 700; color: white; margin-bottom: 2px; }
+.itemMessage { font-size: 12px; color: #9CA3AF; line-height: 1.4; margin-bottom: 8px; }
+.itemTime { font-size: 10px; color: #6B7280; display: block; margin-top: 5px; }
+
+/* --- Accept & Cancel Buttons (MONEY REQUEST) --- */
+.actionButtons {
+    display: flex;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.acceptBtn {
+    flex: 1;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.acceptBtn:hover {
+    background: #43a047;
+    transform: scale(1.03);
+}
+
+.cancelBtn {
+    flex: 1;
+    background: rgba(255, 75, 75, 0.1);
+    color: #FF4B4B;
+    border: 1px solid rgba(255, 75, 75, 0.2);
+    padding: 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.cancelBtn:hover {
+    background: rgba(255, 75, 75, 0.2);
+}
+
+.paidBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(76, 175, 80, 0.1);
+    color: #4CAF50;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 5px;
+}
+
+/* --- Profile Details --- */
+.avatarLarge {
+    background: #4CAF50;
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.logoutBtn {
+    width: calc(100% - 20px);
+    margin: 10px;
+    padding: 12px;
+    background: rgba(255, 77, 77, 0.1);
+    color: #FF4D4D;
+    border: none;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.logoutBtn:hover { background: rgba(255, 77, 77, 0.2); }
+
+.empty { padding: 40px; text-align: center; color: #6B7280; font-size: 13px; }
+
+
+
+
+.sidebar::-webkit-scrollbar {
+    display: none !important;
+}
+
+.sidebar {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
 }

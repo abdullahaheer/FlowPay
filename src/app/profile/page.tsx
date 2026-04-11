@@ -52,7 +52,7 @@ export default function ProfilePage() {
 
     return (
         <div style={{ backgroundColor: '#000D1A', minHeight: '100vh' }}>
-            <LayoutShell headerTitle="My Digital Vault" showBack>
+            <LayoutShell headerTitle="FlowPay Card" showBack>
                 <div style={{ padding: '20px' }}>
                     
                     {/* --- FINAL GREEN CARD DESIGN --- */}

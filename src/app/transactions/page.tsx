@@ -11,148 +11,212 @@ import {
   DocumentData, 
   Timestamp 
 } from 'firebase/firestore';
-import { Loader2, ArrowUpRight, ArrowDownLeft, Calendar, Search } from 'lucide-react';
+import { 
+  Loader2, 
+  ArrowUpRight, 
+  ArrowDownLeft, 
+  Calendar, 
+  TrendingUp, 
+  TrendingDown,
+  History
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// 1. Interfaces for Type Safety
 interface Transaction {
     id: string;
     amount: number;
     receiverName?: string;
     senderName?: string;
-    type: 'transfer' | 'deposit' | 'withdrawal';
+    receiverId?: string;
+    senderId?: string;
+    type: string;
     status: string;
     timestamp: Timestamp;
+    isIncoming: boolean; // Custom flag for UI
 }
 
 export default function TransactionsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    const [stats, setStats] = useState({ sent: 0, received: 0 });
     const currentUserId = auth.currentUser?.uid;
 
     useEffect(() => {
-        const fetchTransactions = async (): Promise<void> => {
+        const fetchAllTransactions = async () => {
             if (!currentUserId) return;
 
             try {
-                // Sender as current user OR Receiver as current user dono fetch karne ke liye
-                const q = query(
+                setLoading(true);
+
+                // 1. Sent Transactions Query
+                const qSent = query(
                     collection(db, "transactions"),
                     where("senderId", "==", currentUserId),
                     orderBy("timestamp", "desc")
                 );
 
-                const querySnapshot = await getDocs(q);
-                const list: Transaction[] = [];
-                
-                querySnapshot.forEach((docSnap) => {
-                    const data = docSnap.data() as DocumentData;
-                    list.push({
-                        id: docSnap.id,
-                        amount: data.amount,
-                        receiverName: data.receiverName,
-                        senderName: data.senderName,
-                        type: data.type,
-                        status: data.status,
-                        timestamp: data.timestamp
-                    });
+                // 2. Received Transactions Query
+                const qReceived = query(
+                    collection(db, "transactions"),
+                    where("receiverId", "==", currentUserId),
+                    orderBy("timestamp", "desc")
+                );
+
+                // Dono queries ko parallel run karna (Speed ke liye)
+                const [sentSnap, receivedSnap] = await Promise.all([
+                    getDocs(qSent),
+                    getDocs(qReceived)
+                ]);
+
+                let totalSent = 0;
+                let totalReceived = 0;
+                const combinedList: Transaction[] = [];
+
+                // Process Sent
+                sentSnap.forEach((doc) => {
+                    const data = doc.data();
+                    totalSent += data.amount;
+                    combinedList.push({
+                        id: doc.id,
+                        ...data,
+                        timestamp: data.timestamp,
+                        isIncoming: false
+                    } as Transaction);
                 });
-                setTransactions(list);
-            } catch (err: unknown) {
-                console.error(err);
-                toast.error("History load nahi ho saki");
-            } finally {
+
+                // Process Received
+                receivedSnap.forEach((doc) => {
+                    const data = doc.data();
+                    totalReceived += data.amount;
+                    combinedList.push({
+                        id: doc.id,
+                        ...data,
+                        timestamp: data.timestamp,
+                        isIncoming: true
+                    } as Transaction);
+                });
+
+                // Merge karne ke baad timestamp par sort karna (Latest First)
+                combinedList.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+
+                setTransactions(combinedList);
+                setStats({ sent: totalSent, received: totalReceived });
+
+            }  finally {
                 setLoading(false);
             }
         };
 
-        fetchTransactions();
+        fetchAllTransactions();
     }, [currentUserId]);
 
-    // Date formatter
     const formatDate = (ts: Timestamp) => {
+        if (!ts) return "Processing...";
         return ts.toDate().toLocaleDateString('en-PK', {
             day: '2-digit',
             month: 'short',
-            year: 'numeric'
+            hour: '2-digit',
+            minute: '2-digit'
         });
     };
 
     return (
         <div style={{ backgroundColor: '#000814', minHeight: '100vh', color: '#FFFFFF' }}>
-            <LayoutShell headerTitle="Activity" showBack>
+            <LayoutShell headerTitle="Transaction History" showBack>
                 <div style={{ padding: '20px', maxWidth: '500px', margin: '0 auto' }}>
                     
-                    {/* --- SUMMARY STATS (Optional) --- */}
+                    {/* --- QUICK STATS CARD --- */}
                     <div style={{ 
                         background: 'linear-gradient(135deg, #0d1b2a 0%, #000814 100%)',
-                        padding: '25px',
+                        padding: '20px',
                         borderRadius: '24px',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        marginBottom: '30px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        marginBottom: '25px',
                         display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
+                        gap: '15px'
                     }}>
-                        <div>
-                            <p style={{ margin: 0, fontSize: '12px', color: '#9CA3AF', fontWeight: '600' }}>TOTAL SPENT</p>
-                            <h2 style={{ margin: '5px 0 0', fontSize: '24px', fontWeight: '800', color: '#4CAF50' }}>
-                                Rs. {transactions.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}
-                            </h2>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '10px', color: '#9CA3AF', marginBottom: '5px' }}>TOTAL SENT</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#FF4D4D' }}>
+                                <TrendingDown size={14} />
+                                <span style={{ fontWeight: '700' }}>Rs. {stats.sent.toLocaleString()}</span>
+                            </div>
                         </div>
-                        <Search size={20} opacity={0.5} />
+                        <div style={{ width: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: '10px', color: '#9CA3AF', marginBottom: '5px' }}>TOTAL RECEIVED</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#4CAF50' }}>
+                                <TrendingUp size={14} />
+                                <span style={{ fontWeight: '700' }}>Rs. {stats.received.toLocaleString()}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', paddingLeft: '5px' }}>Recent Transactions</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '15px', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <History size={16} /> Activity Log
+                    </h3>
 
                     {/* --- TRANSACTIONS LIST --- */}
                     {loading ? (
-                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '50px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '100px', gap: '10px' }}>
                             <Loader2 className="animate-spin" color="#4CAF50" size={32} />
+                            <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Fetching records...</p>
                         </div>
                     ) : transactions.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             {transactions.map((tx) => (
                                 <div key={tx.id} style={{
                                     background: '#0a1622',
-                                    padding: '16px',
-                                    borderRadius: '20px',
+                                    padding: '14px 16px',
+                                    borderRadius: '18px',
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     alignItems: 'center',
-                                    border: '1px solid rgba(255,255,255,0.03)'
+                                    border: '1px solid rgba(255,255,255,0.03)',
+                                    transition: '0.2s'
                                 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <div style={{ 
-                                            background: 'rgba(76, 175, 80, 0.1)', 
-                                            padding: '12px', 
-                                            borderRadius: '16px' 
+                                            background: tx.isIncoming ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 77, 77, 0.1)', 
+                                            padding: '10px', 
+                                            borderRadius: '14px' 
                                         }}>
-                                            <ArrowUpRight size={20} color="#4CAF50" />
+                                            {tx.isIncoming ? 
+                                                <ArrowDownLeft size={20} color="#4CAF50" /> : 
+                                                <ArrowUpRight size={20} color="#FF4D4D" />
+                                            }
                                         </div>
                                         <div>
-                                            <p style={{ margin: 0, fontWeight: '700', fontSize: '14px' }}>
-                                                To: {tx.receiverName || "Unknown"}
+                                            <p style={{ margin: 0, fontWeight: '600', fontSize: '14px' }}>
+                                                {tx.isIncoming ? `From: ${tx.senderName || 'Internal'}` : `To: ${tx.receiverName || 'Internal'}`}
                                             </p>
-                                            <p style={{ margin: 0, fontSize: '11px', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <Calendar size={10} /> {formatDate(tx.timestamp)}
+                                            <p style={{ margin: 0, fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
+                                                {formatDate(tx.timestamp)}
                                             </p>
                                         </div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                        <p style={{ margin: 0, fontWeight: '800', fontSize: '15px', color: '#FFFFFF' }}>
-                                            - Rs. {tx.amount.toLocaleString()}
+                                        <p style={{ 
+                                            margin: 0, 
+                                            fontWeight: '700', 
+                                            fontSize: '15px', 
+                                            color: tx.isIncoming ? '#4CAF50' : '#FFFFFF' 
+                                        }}>
+                                            {tx.isIncoming ? '+' : '-'} Rs. {tx.amount.toLocaleString()}
                                         </p>
-                                        <p style={{ margin: 0, fontSize: '10px', color: '#4CAF50', fontWeight: 'bold' }}>
-                                            SUCCESSFUL
-                                        </p>
+                                        <span style={{ fontSize: '9px', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px', color: '#9CA3AF' }}>
+                                            {tx.status.toUpperCase()}
+                                        </span>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
-                        <div style={{ textAlign: 'center', marginTop: '100px', opacity: 0.5, color: '#4CAF50'}}>
-                            <p>No transactions yet</p>
+                        <div style={{ textAlign: 'center', marginTop: '80px' }}>
+                            <div style={{ opacity: 0.2, marginBottom: '10px' }}>
+                                <History size={48} style={{ margin: '0 auto' }} />
+                            </div>
+                            <p style={{ color: '#9CA3AF', fontSize: '14px' }}>No transactions found</p>
                         </div>
                     )}
                 </div>
