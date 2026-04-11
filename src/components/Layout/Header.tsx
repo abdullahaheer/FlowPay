@@ -16,13 +16,11 @@ import {
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import Image from 'next/image';
 import {
     Bell,
     ArrowLeft,
-    User,
     X,
-    LogOut,
-    ShieldCheck,
     ArrowUpLeft,
     ArrowDownRight,
     Info,
@@ -51,17 +49,14 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ title, showBack }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [user, setUser] = useState<FirebaseUser | null>(null);
 
     const router = useRouter();
     const headerRef = useRef<HTMLDivElement>(null);
     const unreadCount = notifications.filter(n => !n.read).length;
 
-    // --- Actions ---
     const handleAccept = (n: Notification) => {
         setIsNotifOpen(false);
-        // Transfer page par data bhej raha hai auto-fill ke liye
         router.push(`/transfers?recipientId=${n.fromId}&amount=${n.amount}&type=request&requestId=${n.id}`);
     };
 
@@ -94,7 +89,6 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack }) => {
         }
     }, [user, notifications]);
 
-    // --- Effects ---
     useEffect(() => {
         const unsubAuth = onAuthStateChanged(auth, (currentUser) => setUser(currentUser));
         return () => unsubAuth();
@@ -119,17 +113,11 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack }) => {
         const handleClick = (e: MouseEvent) => {
             if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
                 setIsNotifOpen(false);
-                setIsProfileOpen(false);
             }
         };
         document.addEventListener("mousedown", handleClick);
         return () => document.removeEventListener("mousedown", handleClick);
     }, []);
-
-    const handleLogout = async () => {
-        await auth.signOut();
-        router.push('/auth');
-    };
 
     return (
         <header className={styles.header} ref={headerRef}>
@@ -139,25 +127,23 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack }) => {
                         <ArrowLeft size={20} />
                     </button>
                 ) : (
-                    <div className={styles.profileWrapper}>
-                        <button className={styles.profileBtn} onClick={() => { setIsProfileOpen(!isProfileOpen); setIsNotifOpen(false); }}>
-                            <User size={20} className={styles.profileIcon} />
-                        </button>
-                        {isProfileOpen && user && (
-                            <div className={styles.profileDropdown}>
-                                <div className={styles.profileHeader}>
-                                    <div className={styles.avatarLarge}><User size={32} /></div>
-                                    <div className={styles.profileInfo}>
-                                        <p className={styles.userName}>{user.displayName || "User"}</p>
-                                        <p className={styles.userEmail}>{user.email}</p>
-                                    </div>
-                                </div>
-                                <div className={styles.profileBody}>
-                                    <div className={styles.profileItem}><ShieldCheck size={16} /> <span>ID: {user.uid.slice(0, 8)}...</span></div>
-                                    <button onClick={handleLogout} className={styles.logoutBtn}><LogOut size={16} /> Sign Out</button>
-                                </div>
-                            </div>
-                        )}
+                    /* --- Branding: Logo + Text --- */
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '5px' }}>
+                        <Image 
+                            src="/logo.png" 
+                            alt="FlowPay Logo" 
+                            width={32} 
+                            height={32} 
+                            style={{ borderRadius: '6px' }} 
+                        />
+                        <span style={{ 
+                            color: 'white', 
+                            fontSize: '18px', 
+                            fontWeight: '700', 
+                            letterSpacing: '0.5px' 
+                        }}>
+                            FlowPay
+                        </span>
                     </div>
                 )}
             </div>
@@ -172,7 +158,6 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack }) => {
                         <button className={styles.iconButton} onClick={() => {
                             const next = !isNotifOpen;
                             setIsNotifOpen(next);
-                            setIsProfileOpen(false);
                             if (next && unreadCount > 0) markAllAsRead();
                         }}>
                             <Bell size={20} />
@@ -199,16 +184,13 @@ export const Header: React.FC<HeaderProps> = ({ title, showBack }) => {
                                                 <div className={styles.itemContent}>
                                                     <p className={styles.itemTitle}>{n.title}</p>
                                                     <p className={styles.itemMessage}>{n.message}</p>
-
                                                     {n.type === 'payment_request' && n.status === 'pending' && (
                                                         <div className={styles.actionButtons}>
                                                             <button onClick={() => handleAccept(n)} className={styles.acceptBtn}>Accept</button>
                                                             <button onClick={() => handleCancel(n.id)} className={styles.cancelBtn}>Cancel</button>
                                                         </div>
                                                     )}
-
                                                     {n.status === 'paid' && <span className={styles.paidBadge}><Check size={10} /> Paid</span>}
-
                                                     <span className={styles.itemTime}>
                                                         {n.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>

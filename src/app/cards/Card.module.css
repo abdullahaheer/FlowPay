@@ -191,6 +191,7 @@
 .setPinBtn:hover { background: #43a047; transform: translateY(-1px); }
 
 /* --- MODAL / BOTTOM SHEET --- */
+/* --- MODAL / CENTERED VERSION --- */
 .modalOverlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -198,24 +199,32 @@
     backdrop-filter: blur(6px);
     z-index: 9999;
     display: flex;
-    align-items: flex-end; 
+    align-items: center; /* Bottom se hata kar Center kar diya */
     justify-content: center;
+    padding: 20px; /* Mobile par sides se gap ke liye */
 }
 
 .modalSheet {
     width: 100%;
-    max-width: 480px;
+    max-width: 400px; /* Center modal ke liye thora kam width behtar lagta hai */
     background: #ffffff;
-    border-radius: 30px 30px 0 0;
+    border-radius: 24px; /* Charon taraf se round kar diya */
     padding: 30px 25px;
     position: relative;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.3);
-    animation: slideUp 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    /* Animation ko change kar ke Scale (zoom-in) wala kar diya */
+    animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-@keyframes slideUp {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
+@keyframes zoomIn {
+    from { 
+        transform: scale(0.9); 
+        opacity: 0; 
+    }
+    to { 
+        transform: scale(1); 
+        opacity: 1; 
+    }
 }
 
 .sheetHeader {

@@ -14,7 +14,7 @@
 
 @media (max-width: 1023px) {
     .balanceSection {
-        margin: -80px -16px 24px;
+        margin:  24px;
         border-radius: 0 0 32px 32px;
     }
 }
@@ -136,8 +136,10 @@
 /* --- SERVICES GRID UPDATED FOR PROFESSIONAL BOXES --- */
 .servicesGrid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* Force 3 columns as per your visual */
+    /* Desktop: 3 Columns - Teno barabar space cover kryn gy */
+    grid-template-columns: repeat(3, 1fr); 
     gap: 16px;
+    width: 100%;
 }
 
 .serviceItem {
@@ -148,21 +150,20 @@
     padding: 24px 12px;
     text-align: center;
     gap: 12px;
-    
-    /* Dark Greenish Visual Theme */
-    background: rgba(10, 22, 34, 0.95); /* Deep Navy matching visual */
-    border: 1px solid rgba(76, 175, 80, 0.2); /* Subtle green border */
+    background: rgba(10, 22, 34, 0.95);
+    border: 1px solid rgba(76, 175, 80, 0.2);
     border-radius: 20px;
     transition: all 0.3s ease;
     cursor: pointer;
     min-height: 140px;
+    width: 100%; /* Puri space occupy krny k liye */
 }
 
 .serviceItem:hover {
-    background: rgba(10, 22, 34, 1);
-    border-color: #4CAF50; /* Brighter green on hover */
+    background: rgba(15, 23, 42, 1);
+    border-color: #4CAF50;
     transform: translateY(-4px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    box-shadow: 0 10px 20px rgba(0, 255, 127, 0.1);
 }
 
 .serviceIcon {
@@ -170,21 +171,65 @@
 }
 
 .serviceName {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
-    line-height: 1.2;
     color: #FFFFFF;
 }
 
-.serviceInfo {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+/* --- RESPONSIVE FIXES --- */
+
+/* Tablet View (Aksar log 2 columns pasand krty hain) */
+@media (max-width: 900px) and (min-width: 601px) {
+    .servicesGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
-/* Mobile responsive tweak for grid */
-@media (max-width: 480px) {
+/* Mobile Screens (Mobile View Fix) */
+@media (max-width: 600px) {
     .servicesGrid {
-        grid-template-columns: repeat(2, 1fr); /* 2 columns on very small screens if needed */
+        /* Har row mein sirf 1 box jo puri width le lega */
+        grid-template-columns: 1fr; 
+        gap: 14px;
     }
+
+    .serviceItem {
+        /* Mobile par horizontal look (Optional - agar vertical rkhna hai to remove this) */
+        flex-direction: row; 
+        justify-content: flex-start;
+        padding: 18px 25px;
+        min-height: auto;
+        text-align: left;
+        gap: 20px;
+    }
+
+    .serviceIcon {
+        font-size: 24px;
+        background: rgba(76, 175, 80, 0.1);
+        padding: 10px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .serviceName {
+        font-size: 16px; /* Mobile par text thora barha kr dia ta k readability achi ho */
+    }
+}
+
+.spinAnimation {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.disabledBanner {
+    background: linear-gradient(135deg, #334155, #1e293b) !important;
+    cursor: not-allowed;
+    opacity: 0.9;
 }

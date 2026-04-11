@@ -1,19 +1,22 @@
 "use client";
+
 import React, { useState } from 'react';
-import { Mail, Lock, User, Wallet, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { initializeApp, getApps, getApp, FirebaseError } from "firebase/app";
+import { Mail, Lock, User, Eye, EyeOff, Loader2, CreditCard, Calendar, MapPin, ArrowLeft, Phone } from 'lucide-react';
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { 
   getAuth, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   sendEmailVerification,
+  sendPasswordResetEmail,
   signOut 
 } from "firebase/auth";
-import { getFirestore, doc, setDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, Timestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import toast, { Toaster } from 'react-hot-toast';
+import Image from 'next/image';
 
-// Firebase Configuration
+// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyAVTxHT-UL9YQuRpkARwYEfUlvvwTkN6Sk",
   authDomain: "nextjs-auth-96086.firebaseapp.com",
@@ -29,158 +32,180 @@ const db = getFirestore(app);
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [isForgotMode, setIsForgotMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
-  // --- Helper: Generate Random Card & Account Details ---
-  const generateVaultDetails = () => {
-    // 16 digit card: 4444 (FlowPay bin) + 12 random digits
-    const cardNumber = "4444" + Math.floor(Math.random() * 1000000000000).toString().padStart(12, '0');
-    // Unique ID like FLP-XJ92
-    const accountNumber = "FLP-" + Math.random().toString(36).toUpperCase().substring(2, 7);
-    const cvv = Math.floor(100 + Math.random() * 900).toString();
-    return { cardNumber, accountNumber, cvv };
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    cnic: '',
+    dob: '',
+    city: '',
+    phone: ''
+  });
+
+  // --- Validations ---
+  const validateCNIC = (cnic: string) => /^[0-9]{5}-[0-9]{7}-[0-9]{1}$/.test(cnic);
+  const validatePhone = (phone: string) => /^03[0-9]{9}$/.test(phone);
+  const validateAge = (birthDate: string) => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age >= 18;
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
+  const handleCnicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, "");
+    if (val.length > 13) val = val.substring(0, 13);
+    let formatted = val;
+    if (val.length > 5 && val.length <= 12) formatted = `${val.slice(0, 5)}-${val.slice(5)}`;
+    else if (val.length > 12) formatted = `${val.slice(0, 5)}-${val.slice(5, 12)}-${val.slice(12)}`;
+    setFormData({...formData, cnic: formatted});
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || (!isLogin && !name)) {
-      toast.error("Please fill all fields");
-      return;
-    }
+    if (!formData.email) return toast.error("Please enter your email");
     setLoading(true);
-
     try {
-      if (isLogin) {
-        const res = await signInWithEmailAndPassword(auth, email.trim(), password);
-        
-        if (!res.user.emailVerified) {
-          toast.error("Email not verified! Check your inbox.");
-          await signOut(auth);
-          setLoading(false);
-          return;
-        }
-
-        setTimeout(() => router.push("/dashboard"), 1200); 
-      } else {
-        const res = await createUserWithEmailAndPassword(auth, email.trim(), password);
-        
-        // Email verification link bhejain
-        await sendEmailVerification(res.user);
-        
-        // Vault (Card & Account) details generate karein
-        const { cardNumber, accountNumber, cvv } = generateVaultDetails();
-
-        // Firestore mein user document create karein
-        await setDoc(doc(db, "users", res.user.uid), {
-          uid: res.user.uid,
-          name: name,
-          email: email.trim(),
-          balance: 1099.25, // Starting balance
-          accountNumber: accountNumber,
-          cardDetails: {
-            number: cardNumber,
-            expiry: "12/28",
-            cvv: cvv,
-            status: "active",
-            cardHolder: name
-          },
-          isVerified: false,
-          createdAt: new Date()
-        });
-
-        toast.success("Vault Created! Verify email to access your card.");
-        setIsLogin(true); 
-      }
-    } catch (err) {
-      const error = err as FirebaseError;
-      if (error.code === 'auth/email-already-in-use') toast.error("Email already in use!");
-      else if (error.code === 'auth/invalid-email') toast.error("Invalid email format!");
-      else if (error.code === 'auth/invalid-credential') toast.error("Wrong email or password!");
-      else toast.error(error.message);
+      await sendPasswordResetEmail(auth, formData.email.trim());
+      toast.success("Password reset link sent to your email!");
+      setIsForgotMode(false);
+    } catch  {
+      toast.error( "Something went wrong");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Styles ---
-  const styles: { [key: string]: React.CSSProperties } = {
-    wrapper: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', width: '100%', backgroundColor: '#001E3C', padding: '20px', boxSizing: 'border-box', fontFamily: 'sans-serif' },
-    card: { width: '100%', maxWidth: '400px', backgroundColor: 'white', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' },
-    header: { padding: '40px 20px 20px', textAlign: 'center' },
-    logoBox: { background: '#4CAF50', width: '60px', height: '60px', borderRadius: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '15px', boxShadow: '0 8px 16px rgba(76, 175, 80, 0.2)' },
-    formArea: { padding: '20px 30px 40px' },
-    tabContainer: { display: 'flex', backgroundColor: '#F3F4F6', padding: '5px', borderRadius: '14px', marginBottom: '25px' },
-    inputWrapper: { position: 'relative', marginBottom: '16px' },
-    input: { width: '100%', padding: '14px 45px 14px 45px', borderRadius: '12px', border: '1px solid #E5E7EB', backgroundColor: '#F9FAFB', outline: 'none', boxSizing: 'border-box', fontSize: '15px', color: '#333' },
-    iconLeft: { position: 'absolute', left: '15px', top: '15px', color: '#9CA3AF' },
-    iconRight: { position: 'absolute', right: '15px', top: '15px', color: '#9CA3AF', cursor: 'pointer' },
-    submitBtn: { width: '100%', padding: '15px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '600', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', transition: '0.3s' }
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        const res = await signInWithEmailAndPassword(auth, formData.email.trim(), formData.password);
+        if (!res.user.emailVerified) {
+          toast.error("Please verify your email first!");
+          await signOut(auth);
+          setLoading(false);
+          return;
+        }
+        router.push("/dashboard");
+      } else {
+        // Sign Up Validations
+        if (!validateCNIC(formData.cnic)) throw new Error("Invalid CNIC Format (XXXXX-XXXXXXX-X)");
+        if (!validatePhone(formData.phone)) throw new Error("Invalid Phone (03xxxxxxxxx)");
+        if (!validateAge(formData.dob)) throw new Error("Minimum age 18 required");
+        
+        const res = await createUserWithEmailAndPassword(auth, formData.email.trim(), formData.password);
+        await sendEmailVerification(res.user);
+
+        const accountNumber = "FLP-" + Math.random().toString(36).toUpperCase().substring(2, 7);
+
+        await setDoc(doc(db, "users", res.user.uid), {
+          uid: res.user.uid,
+          name: formData.name,
+          email: formData.email.trim(),
+          phone: formData.phone,
+          cnic: formData.cnic,
+          dob: formData.dob,
+          city: formData.city,
+          balance: 1000.00,
+          accountNumber,
+          isVerified: false,
+          createdAt: Timestamp.now()
+        });
+
+        toast.success("Verification email sent! Check inbox.");
+        setIsLogin(true);
+      }
+    } catch {
+      toast.error("Authentication Failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getTabStyle = (active: boolean): React.CSSProperties => ({
-    flex: 1, padding: '10px', border: 'none', borderRadius: '10px', cursor: 'pointer',
-    backgroundColor: active ? 'white' : 'transparent',
-    fontWeight: '600', color: active ? '#001E3C' : '#6B7280',
-    transition: '0.3s'
-  });
+  const styles: { [key: string]: React.CSSProperties } = {
+    wrapper: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#001E3C', padding: '20px', fontFamily: 'sans-serif' },
+    logoBox: { background: '#4CAF50', padding: '15px', borderRadius: '24px', display: 'inline-flex', marginBottom: '15px', boxShadow: '0 10px 25px rgba(76, 175, 80, 0.3)', border: '4px solid rgba(255, 255, 255, 0.1)' },
+    card: { width: '100%', maxWidth: '450px', background: 'rgba(10, 22, 34, 0.85)', borderRadius: '32px', padding: '35px', border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(12px)' },
+    input: { width: '100%', padding: '14px 48px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.05)', outline: 'none', color: 'white', fontSize: '14px' },
+    inputWrapper: { position: 'relative', marginBottom: '14px' },
+    iconLeft: { position: 'absolute', left: '16px', top: '14px', color: '#4CAF50' },
+    btn: { width: '100%', padding: '16px', background: 'linear-gradient(135deg, #4CAF50, #2d5a2d)', color: 'white', border: 'none', borderRadius: '14px', fontWeight: '700', cursor: 'pointer', marginTop: '10px' }
+  };
 
   return (
     <div style={styles.wrapper}>
       <Toaster position="top-center" />
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <div style={styles.logoBox}><Wallet color="white" size={32} /></div>
-          <h2 style={{ margin: 0, color: '#001E3C', fontSize: '26px', fontWeight: 'bold' }}>FlowPay</h2>
-          <p style={{ margin: '5px 0 0', color: '#6B7280', fontSize: '14px' }}>Your Secure Digital Vault</p>
+      
+      {/* --- Header Section --- */}
+      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+        <div style={styles.logoBox}>
+          <Image src="/logo.png" alt="Logo" width={60} height={60} style={{ borderRadius: '12px' }} />
         </div>
+        <h1 style={{ color: 'white', fontSize: '32px', fontWeight: '800', margin: 0 }}>FlowPay</h1>
+        <p style={{ color: '#9CA3AF', fontSize: '15px', marginTop: '4px' }}>Your Secure Digital Vault</p>
+      </div>
 
-        <div style={styles.formArea}>
-          <div style={styles.tabContainer}>
-            <button onClick={() => setIsLogin(true)} style={getTabStyle(isLogin)}>Login</button>
-            <button onClick={() => setIsLogin(false)} style={getTabStyle(!isLogin)}>Sign Up</button>
+      <div style={styles.card}>
+        {isForgotMode && (
+          <button onClick={() => setIsForgotMode(false)} style={{ background: 'none', border: 'none', color: '#4CAF50', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', marginBottom: '20px', fontWeight: '600' }}>
+            <ArrowLeft size={18} /> Back to Login
+          </button>
+        )}
+
+        {!isForgotMode && (
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '5px', borderRadius: '14px', marginBottom: '25px' }}>
+            <button onClick={() => setIsLogin(true)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: isLogin ? '#4CAF50' : 'transparent', color: 'white', fontWeight: '700', cursor: 'pointer' }}>Login</button>
+            <button onClick={() => setIsLogin(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: !isLogin ? '#4CAF50' : 'transparent', color: 'white', fontWeight: '700', cursor: 'pointer' }}>Join Vault</button>
           </div>
+        )}
 
-          <form onSubmit={handleAuth} autoComplete="off">
+        {isForgotMode ? (
+          <form onSubmit={handleResetPassword}>
+            <h2 style={{ color: 'white', fontSize: '20px', marginBottom: '10px' }}>Reset Password</h2>
+            <p style={{ color: '#9CA3AF', fontSize: '13px', marginBottom: '20px' }}>Enter email for reset link.</p>
+            <div style={styles.inputWrapper}><Mail style={styles.iconLeft} size={18} /><input type="email" placeholder="Email Address" style={styles.input} onChange={(e) => setFormData({...formData, email: e.target.value})} required /></div>
+            <button type="submit" disabled={loading} style={styles.btn}>{loading ? <Loader2 className="animate-spin" /> : 'Send Reset Link'}</button>
+          </form>
+        ) : (
+          <form onSubmit={handleAuth}>
             {!isLogin && (
-              <div style={styles.inputWrapper}>
-                <User style={styles.iconLeft} size={20} />
-                <input type="text" placeholder="Full Name" style={styles.input} onChange={(e) => setName(e.target.value)} required />
+              <>
+                <div style={styles.inputWrapper}><User style={styles.iconLeft} size={18} /><input type="text" placeholder="Full Name" style={styles.input} onChange={(e) => setFormData({...formData, name: e.target.value})} required /></div>
+                <div style={styles.inputWrapper}><Phone style={styles.iconLeft} size={18} /><input type="text" placeholder="Phone (03xxxxxxxxx)" style={styles.input} onChange={(e) => setFormData({...formData, phone: e.target.value})} required /></div>
+                <div style={styles.inputWrapper}><CreditCard style={styles.iconLeft} size={18} /><input type="text" placeholder="CNIC (12345-1234567-1)" value={formData.cnic} style={styles.input} onChange={handleCnicChange} required /></div>
+                <div style={styles.inputWrapper}><MapPin style={styles.iconLeft} size={18} /><input type="text" placeholder="City" style={styles.input} onChange={(e) => setFormData({...formData, city: e.target.value})} required /></div>
+                <div style={styles.inputWrapper}><Calendar style={styles.iconLeft} size={18} /><input type="date" style={{...styles.input, colorScheme: 'dark'}} onChange={(e) => setFormData({...formData, dob: e.target.value})} required /></div>
+              </>
+            )}
+
+            <div style={styles.inputWrapper}><Mail style={styles.iconLeft} size={18} /><input type="email" placeholder="Email Address" style={styles.input} onChange={(e) => setFormData({...formData, email: e.target.value})} required /></div>
+            <div style={styles.inputWrapper}>
+              <Lock style={styles.iconLeft} size={18} />
+              <input type={showPassword ? "text" : "password"} placeholder="Password" style={styles.input} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
+              <div onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '16px', top: '14px', cursor: 'pointer', color: '#9CA3AF' }}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</div>
+            </div>
+
+            {isLogin && (
+              <div style={{ textAlign: 'right', marginBottom: '15px' }}>
+                <span onClick={() => setIsForgotMode(true)} style={{ color: '#4CAF50', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>Forgot Password?</span>
               </div>
             )}
-            
-            <div style={styles.inputWrapper}>
-              <Mail style={styles.iconLeft} size={20} />
-              <input type="email" placeholder="Email Address" style={styles.input} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
 
-            <div style={styles.inputWrapper}>
-              <Lock style={styles.iconLeft} size={20} />
-              <input 
-                type={showPassword ? "text" : "password"} 
-                placeholder="Password" 
-                style={styles.input} 
-                onChange={(e) => setPassword(e.target.value)} 
-                required 
-              />
-              <div onClick={() => setShowPassword(!showPassword)} style={styles.iconRight}>
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </div>
-            </div>
-
-            <button 
-              type="submit"
-              style={{...styles.submitBtn, opacity: loading ? 0.7 : 1}} 
-              disabled={loading}
-            >
-              {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'Sign In' : 'Create Vault')}
+            <button type="submit" disabled={loading} style={styles.btn}>
+              {loading ? <Loader2 className="animate-spin" /> : (isLogin ? 'Sign In' : 'Secure My Vault')}
             </button>
           </form>
-        </div>
+        )}
       </div>
     </div>
   );

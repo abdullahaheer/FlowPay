@@ -6,7 +6,7 @@ import styles from './BottomNav.module.css';
 const navItems = [
     { label: 'Home', icon: '🏠', href: '/dashboard' },
     { label: 'Cards', icon: '💳', href: '/cards' },
-    { label: 'Store', icon: '🛍️', href: '/store' },
+    // { label: 'Store', icon: '🛍️', href: '/store' },
     { label: 'More', icon: '⋮⋮', href: '/more' },
 ];
 

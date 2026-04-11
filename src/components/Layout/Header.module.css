@@ -89,6 +89,7 @@
     overflow: hidden;
     animation: slideIn 0.25s ease-out;
     z-index: 1001;
+    padding: 10px
 }
 
 .dropdown { right: 0; width: 300px; }

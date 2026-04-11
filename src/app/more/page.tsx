@@ -20,34 +20,45 @@ export default function MorePage() {
     const [authenticated, setAuthenticated] = useState(false);
 
     useEffect(() => {
-        // Session check logic
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
                 setAuthenticated(true);
             } else {
-                // Agar user login nahi hai, to redirect kar dein
                 router.push("/auth");
             }
         });
-
         return () => unsubscribe();
     }, [router]);
 
     const handleItemClick = async (id: string) => {
-        if (id === 'logout') {
-            try {
-                await signOut(auth);
-                toast.success("Logged out successfully!");
-                router.push("/auth"); 
-            } catch {
-                toast.error("Logout failed!");
-            }
-        } else {
-            toast(`Feature ${id} coming soon!`);
+        switch (id) {
+            case 'logout':
+                try {
+                    await signOut(auth);
+                    toast.success("Logged out successfully!");
+                    router.push("/auth"); 
+                } catch {
+                    toast.error("Logout failed!");
+                }
+                break;
+            
+            case 'support':
+                router.push('/support');
+                break;
+            
+            case 'terms':
+                router.push('/termsAndConditions');
+                break;
+            
+            case 'about':
+                router.push('/about');
+                break;
+
+            default:
+                toast(`Feature coming soon!`);
         }
     };
 
-    // Jab tak auth status confirm nahi hota, tab tak loader ya empty screen
     if (!authenticated) {
         return (
             <div style={{ 

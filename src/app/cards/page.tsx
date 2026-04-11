@@ -1,12 +1,13 @@
 "use client";
+import { FirebaseError } from 'firebase/app';
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '@/lib/firebase';
-import { doc, onSnapshot, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { LayoutShell } from '@/components/Layout/LayoutShell';
 import { 
-    Eye, EyeOff, Snowflake, Hash, 
-    Loader2, Landmark, PlusCircle, X, ShieldCheck, Lock
+    Eye, EyeOff, Snowflake, Landmark, PlusCircle, X, 
+    ShieldCheck, Lock, RefreshCcw, Loader2, KeyRound 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import styles from './Card.module.css';
@@ -22,18 +23,24 @@ interface CardData {
 }
 
 export default function CardsPage() {
+  
     const [userData, setUserData] = useState<CardData | null>(null);
-    const [showFullDetails, setShowFullDetails] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [showFullDetails, setShowFullDetails] = useState(false);
+    const [showPinText, setShowPinText] = useState(false);
+    const [showPassText, setShowPassText] = useState(false); 
     
-    const [activeModal, setActiveModal] = useState<'limit' | 'pin' | null>(null);
-    const [showPinFields, setShowPinFields] = useState(false);
+    const [activeModal, setActiveModal] = useState<'limit' | 'pin' | 'reset-pin' | null>(null);
+    const [resetStep, setResetStep] = useState(1); 
+
     const [formData, setFormData] = useState({
         oldPin: "",
         newPin: "",
         confirmPin: "",
         amount: "",
-        securityPin: "" 
+        securityPin: "",
+        loginPassword: ""
     });
 
     useEffect(() => {
@@ -54,74 +61,101 @@ export default function CardsPage() {
                         });
                     }
                     setLoading(false);
+                }, () => {
+                    toast.error("Failed to fetch card data");
+                    setLoading(false);
                 });
                 return () => unsubSnap();
+            } else {
+                setLoading(false);
             }
         });
         return () => unsubAuth();
     }, []);
 
-    const sendNotification = async (title: string, message: string, type: string) => {
-        const currentUser = auth.currentUser;
-        if (!currentUser) return;
-        try {
-            const notifRef = collection(db, "users", currentUser.uid, "notifications");
-            await addDoc(notifRef, {
-                title, message, type,
-                timestamp: serverTimestamp(),
-                isRead: false
-            });
-        } catch (err) { console.error(err); }
-    };
-
     const resetForm = () => {
-        setFormData({ oldPin: "", newPin: "", confirmPin: "", amount: "", securityPin: "" });
         setActiveModal(null);
-        setShowPinFields(false);
+        setResetStep(1);
+        setShowPinText(false);
+        setShowPassText(false);
+        setIsVerifying(false);
+        setFormData({ oldPin: "", newPin: "", confirmPin: "", amount: "", securityPin: "", loginPassword: "" });
     };
 
     const handleNumberInput = (value: string, field: string) => {
         const onlyNums = value.replace(/[^0-9]/g, '');
-        if (field === 'amount' && Number(onlyNums) > 200000) {
-            toast.error("Maximum limit is 200,000 PKR", { id: "limit-err" });
-            return;
-        }
+        if (field === 'amount' && Number(onlyNums) > 200000) return;
         setFormData(prev => ({ ...prev, [field]: onlyNums }));
+    };
+
+    const verifyLoginPassword = async () => {
+        const user = auth.currentUser;
+        if (!user || !user.email) return toast.error("User session not found");
+        if (!formData.loginPassword) return toast.error("Please enter your password");
+        
+        setIsVerifying(true);
+        const loadToast = toast.loading("Verifying Identity...");
+        
+        try {
+            const credential = EmailAuthProvider.credential(user.email, formData.loginPassword);
+            await reauthenticateWithCredential(user, credential);
+            toast.success("Identity Verified!", { id: loadToast });
+            setResetStep(2); 
+            setIsVerifying(false);
+        } catch (error) {
+    setIsVerifying(false);
+    
+    // Check karein ke kya yeh waqayi Firebase ka error hai
+    if (error instanceof FirebaseError) {
+        if (error.code === 'auth/wrong-password') {
+            toast.error("Incorrect password.", { id: loadToast });
+        } else {
+            toast.error(error.message, { id: loadToast });
+        }
+    } else {
+        toast.error("An unexpected error occurred", { id: loadToast });
+    }
+}
+    };
+
+    const handleFinalReset = async () => {
+        if (formData.newPin.length !== 4) return toast.error("PIN must be 4 digits");
+        if (formData.newPin !== formData.confirmPin) return toast.error("PINs do not match");
+
+        setIsVerifying(true);
+        try {
+            const userRef = doc(db, "users", auth.currentUser!.uid);
+            await updateDoc(userRef, { "cardDetails.pin": formData.newPin });
+            toast.success("Card PIN updated successfully");
+            resetForm();
+        } catch { 
+            toast.error("Failed to update PIN"); 
+            setIsVerifying(false);
+        }
     };
 
     const handleUpdateLimit = async () => {
         if (!formData.amount || !formData.securityPin) return toast.error("Please fill all fields");
-        if (formData.securityPin !== userData?.pin) return toast.error("Incorrect Security PIN");
+        if (formData.securityPin !== userData?.pin) return toast.error("Incorrect Card PIN");
         
+        setIsVerifying(true);
         try {
             const userRef = doc(db, "users", auth.currentUser!.uid);
             await updateDoc(userRef, { "cardDetails.limit": Number(formData.amount) });
-            await sendNotification("Limit Updated", `New limit: ${formData.amount} PKR`, "limit");
-            toast.success("Limit updated");
+            toast.success("Daily limit updated!");
             resetForm();
-        } catch (err) { toast.error("Update failed"); }
+        } catch { 
+            toast.error("Update failed"); 
+            setIsVerifying(false);
+        }
     };
 
-    const handlePinSubmit = async () => {
-        const { oldPin, newPin, confirmPin } = formData;
-        if (newPin.length !== 4 || newPin !== confirmPin) return toast.error("PINs must match & be 4 digits");
-        if (userData?.pin && oldPin !== userData.pin) return toast.error("Current PIN incorrect");
-
-        try {
-            const userRef = doc(db, "users", auth.currentUser!.uid);
-            await updateDoc(userRef, { "cardDetails.pin": newPin });
-            toast.success("PIN saved successfully");
-            resetForm();
-        } catch (err) { toast.error("Failed to save PIN"); }
-    };
-
-    if (loading) return <div className={styles.loader}><Loader2 className={styles.spin} /></div>;
+    if (loading) return <div className={styles.loader}><Loader2 className={styles.spin} size={40} /></div>;
 
     return (
-        <LayoutShell headerTitle="My Virtual Card" showBack>
+        <LayoutShell headerTitle="Card Security" showBack>
             <div className={styles.mainContainer}>
                 
-                {/* Virtual Card Section */}
                 <div className={`${styles.virtualCard} ${userData?.isFrozen ? styles.frozenOverlay : ''}`}>
                     {userData?.isFrozen && <div className={styles.frozenTag}>FROZEN</div>}
                     <div className={styles.cardTop}>
@@ -135,18 +169,16 @@ export default function CardsPage() {
                         <div className={styles.holderInfo}>
                             <span className={styles.label}>Card Holder</span>
                             <span className={styles.value}>{userData?.holder.toUpperCase()}</span>
-                            <button className={styles.toggleBtn} onClick={() => setShowFullDetails(!showFullDetails)}>
-                                {showFullDetails ? <EyeOff size={12} /> : <Eye size={12} />} Details
-                            </button>
                         </div>
-                        <p className={styles.visaText}>VISA</p>
+                        <button className={styles.toggleBtn} onClick={() => setShowFullDetails(!showFullDetails)}>
+                            {showFullDetails ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
                     </div>
                 </div>
 
-                {/* Tiles Section */}
-                <div className={styles.actionGridSmall}>
+                <div className={styles.actionGridSmall} style={{marginTop: '20px'}}>
                     <div className={styles.tile} onClick={() => setActiveModal('limit')}>
-                        <div className={styles.tileIcon}><Landmark size={22} /></div>
+                        <div className={styles.tileIcon}><Landmark size={20} /></div>
                         <div className={styles.tileText}>
                             <span className={styles.tileLabel}>Daily Limit</span>
                             <span className={styles.tileValue}>{userData?.limit.toLocaleString()} PKR</span>
@@ -154,11 +186,13 @@ export default function CardsPage() {
                     </div>
                     <div className={`${styles.tile} ${userData?.isFrozen ? styles.activeFreezeTile : ''}`} 
                          onClick={async () => {
-                             const userRef = doc(db, "users", auth.currentUser!.uid);
-                             await updateDoc(userRef, { "cardDetails.isFrozen": !userData?.isFrozen });
-                             toast.success(userData?.isFrozen ? "Card Activated" : "Card Frozen");
+                             try {
+                                 const userRef = doc(db, "users", auth.currentUser!.uid);
+                                 await updateDoc(userRef, { "cardDetails.isFrozen": !userData?.isFrozen });
+                                 toast.success(userData?.isFrozen ? "Card Unfrozen" : "Card Frozen");
+                             } catch { toast.error("Status update failed"); }
                          }}>
-                        <div className={styles.tileIcon}><Snowflake size={22} /></div>
+                        <div className={styles.tileIcon}><Snowflake size={20} /></div>
                         <div className={styles.tileText}>
                             <span className={styles.tileLabel}>Status</span>
                             <span className={styles.tileValue}>{userData?.isFrozen ? "Frozen" : "Active"}</span>
@@ -166,71 +200,107 @@ export default function CardsPage() {
                     </div>
                 </div>
 
-                <button className={styles.setPinBtn} onClick={() => setActiveModal('pin')}>
-                    <Hash size={20} /> <span>{userData?.pin ? "Manage Security PIN" : "Setup Card PIN"}</span>
-                    <PlusCircle size={18} />
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '15px' }}>
+                    <button className={styles.setPinBtn} onClick={() => setActiveModal('pin')}>
+                        <Lock size={18} />
+                        <span>{userData?.pin ? "Update Card PIN" : "Setup Card PIN"}</span>
+                        <PlusCircle size={18} />
+                    </button>
+                    {userData?.pin && (
+                        <button className={styles.setPinBtn} onClick={() => setActiveModal('reset-pin')} style={{background: '#64748b'}}>
+                            <RefreshCcw size={18} />
+                            <span>Forgot PIN? Reset with Password</span>
+                        </button>
+                    )}
+                </div>
 
-                {/* --- MODAL (SYNCED WITH CSS) --- */}
                 {activeModal && (
                     <div className={styles.modalOverlay} onClick={resetForm}>
                         <div className={styles.modalSheet} onClick={(e) => e.stopPropagation()}>
                             <div className={styles.sheetHeader}>
-                                <h3>{activeModal === 'limit' ? 'Transaction Limit' : 'PIN Settings'}</h3>
-                                <div className={styles.headerIcons}>
-                                    <button className={styles.viewToggle} onClick={() => setShowPinFields(!showPinFields)}>
-                                        {showPinFields ? <EyeOff size={18} /> : <Eye size={18} />}
-                                    </button>
-                                    <button className={styles.closeBtn} onClick={resetForm}><X size={20}/></button>
-                                </div>
+                                <h3>{activeModal === 'reset-pin' ? 'Security Identity' : 'Card Settings'}</h3>
+                                <button className={styles.closeBtn} onClick={resetForm}><X size={20}/></button>
                             </div>
                             
                             <div className={styles.sheetBody}>
-                                {activeModal === 'limit' ? (
+                                {activeModal === 'limit' && (
                                     <>
                                         <div className={styles.inputWrapper}>
-                                            <label>Daily Limit (PKR)</label>
-                                            <input type="text" inputMode="numeric" value={formData.amount} 
-                                            onChange={(e) => handleNumberInput(e.target.value, 'amount')} 
-                                            className={styles.modalInput} placeholder="Enter amount"/>
-                                            <div className={styles.limitRange}>
-                                                <span className={styles.minLimit}>Min: 1,000</span>
-                                                <span className={styles.maxLimit}>Max: 200,000</span>
-                                            </div>
+                                            <label>New Daily Limit (PKR)</label>
+                                            <input type="text" value={formData.amount} onChange={(e) => handleNumberInput(e.target.value, 'amount')} className={styles.modalInput} placeholder="e.g. 50000"/>
                                         </div>
                                         <div className={styles.inputWrapper}>
-                                            <label>Confirm with Security PIN</label>
-                                            <input type={showPinFields ? "text" : "password"} maxLength={4} inputMode="numeric" 
-                                            value={formData.securityPin} onChange={(e) => handleNumberInput(e.target.value, 'securityPin')} 
-                                            className={styles.modalInput} placeholder="••••"/>
+                                            <label>Card PIN</label>
+                                            <div className={styles.inputContainer}>
+                                                <input type={showPinText ? "text" : "password"} maxLength={4} value={formData.securityPin} onChange={(e) => handleNumberInput(e.target.value, 'securityPin')} className={styles.modalInput} placeholder="••••" style={{letterSpacing: '8px'}}/>
+                                                <button onClick={() => setShowPinText(!showPinText)} className={styles.eyeInside}>{showPinText ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                                            </div>
                                         </div>
-                                        <button className={styles.confirmBtn} onClick={handleUpdateLimit}>
-                                            <ShieldCheck size={18}/> Update Limit
+                                        <button className={styles.confirmBtn} onClick={handleUpdateLimit} disabled={isVerifying}>
+                                            {isVerifying ? <Loader2 className={styles.spin} size={18}/> : <ShieldCheck size={18}/>}
+                                            Update Limit
                                         </button>
                                     </>
-                                ) : (
+                                )}
+
+                                {activeModal === 'pin' && (
                                     <>
                                         {userData?.pin && (
                                             <div className={styles.inputWrapper}>
-                                                <label>Current PIN</label>
-                                                <input type={showPinFields ? "text" : "password"} maxLength={4} value={formData.oldPin}
-                                                onChange={(e) => handleNumberInput(e.target.value, 'oldPin')} className={styles.modalInput} placeholder="••••"/>
+                                                <label>Old Card PIN</label>
+                                                <input type="password" maxLength={4} value={formData.oldPin} onChange={(e) => handleNumberInput(e.target.value, 'oldPin')} className={styles.modalInput} placeholder="••••" style={{letterSpacing: '8px'}}/>
                                             </div>
                                         )}
                                         <div className={styles.inputWrapper}>
-                                            <label>{userData?.pin ? 'New 4-Digit PIN' : 'Create 4-Digit PIN'}</label>
-                                            <input type={showPinFields ? "text" : "password"} maxLength={4} value={formData.newPin}
-                                            onChange={(e) => handleNumberInput(e.target.value, 'newPin')} className={styles.modalInput} placeholder="••••"/>
+                                            <label>New 4-Digit PIN</label>
+                                            <div className={styles.inputContainer}>
+                                                <input type={showPinText ? "text" : "password"} maxLength={4} value={formData.newPin} onChange={(e) => handleNumberInput(e.target.value, 'newPin')} className={styles.modalInput} placeholder="••••" style={{letterSpacing: '8px'}}/>
+                                                <button onClick={() => setShowPinText(!showPinText)} className={styles.eyeInside}>{showPinText ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                                            </div>
                                         </div>
-                                        <div className={styles.inputWrapper}>
-                                            <label>Confirm PIN</label>
-                                            <input type={showPinFields ? "text" : "password"} maxLength={4} value={formData.confirmPin}
-                                            onChange={(e) => handleNumberInput(e.target.value, 'confirmPin')} className={styles.modalInput} placeholder="••••"/>
-                                        </div>
-                                        <button className={styles.confirmBtn} onClick={handlePinSubmit}>
-                                            <Lock size={18}/> Save PIN
+                                        <button className={styles.confirmBtn} onClick={handleFinalReset} disabled={isVerifying}>
+                                            {isVerifying ? <Loader2 className={styles.spin} size={18}/> : <Lock size={18}/>}
+                                            Save New PIN
                                         </button>
                                     </>
+                                )}
+
+                                {activeModal === 'reset-pin' && (
+                                    resetStep === 1 ? (
+                                        <div>
+                                            <div style={{textAlign: 'center', marginBottom: '15px'}}>
+                                                <KeyRound size={32} style={{margin: '0 auto'}} color="#64748b" />
+                                                <p style={{fontSize: '13px', color: '#666', marginTop: '10px'}}>Enter account password to unlock PIN reset.</p>
+                                            </div>
+                                            <div className={styles.inputWrapper}>
+                                                <label>Login Password</label>
+                                                <div className={styles.inputContainer}>
+                                                    <input type={showPassText ? "text" : "password"} value={formData.loginPassword} onChange={e => setFormData({...formData, loginPassword: e.target.value})} className={styles.modalInput} placeholder="Account Password"/>
+                                                    <button onClick={() => setShowPassText(!showPassText)} className={styles.eyeInside}>{showPassText ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                                                </div>
+                                            </div>
+                                            <button className={styles.confirmBtn} onClick={verifyLoginPassword} disabled={isVerifying}>
+                                                {isVerifying ? <Loader2 className={styles.spin} size={18}/> : "Verify Identity"}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <div className={styles.inputWrapper}>
+                                                <label>Set New 4-Digit PIN</label>
+                                                <div className={styles.inputContainer}>
+                                                    <input type={showPinText ? "text" : "password"} maxLength={4} value={formData.newPin} onChange={(e) => handleNumberInput(e.target.value, 'newPin')} className={styles.modalInput} placeholder="••••" style={{letterSpacing: '8px'}}/>
+                                                    <button onClick={() => setShowPinText(!showPinText)} className={styles.eyeInside}>{showPinText ? <EyeOff size={18}/> : <Eye size={18}/>}</button>
+                                                </div>
+                                            </div>
+                                            <div className={styles.inputWrapper}>
+                                                <label>Confirm New PIN</label>
+                                                <input type={showPinText ? "text" : "password"} maxLength={4} value={formData.confirmPin} onChange={(e) => handleNumberInput(e.target.value, 'confirmPin')} className={styles.modalInput} placeholder="••••" style={{letterSpacing: '8px'}}/>
+                                            </div>
+                                            <button className={styles.confirmBtn} onClick={handleFinalReset} disabled={isVerifying}>
+                                                {isVerifying ? <Loader2 className={styles.spin} size={18}/> : "Reset PIN Now"}
+                                            </button>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </div>
