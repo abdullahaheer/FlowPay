@@ -6,13 +6,10 @@ import styles from './BottomNav.module.css';
 const navItems = [
     { label: 'Home', icon: '🏠', href: '/dashboard' },
     { label: 'Cards', icon: '💳', href: '/cards' },
-    // { label: 'Store', icon: '🛍️', href: '/store' },
     { label: 'More', icon: '⋮⋮', href: '/more' },
 ];
-
 export const BottomNav: React.FC = () => {
     const pathname = usePathname();
-
     return (
         <nav className={styles.nav}>
             <ul className={styles.navList}>

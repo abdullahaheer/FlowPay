@@ -1,5 +1,4 @@
 "use client";
-
 import React, { useEffect, useState } from 'react';
 import { LayoutShell } from '@/components/Layout/LayoutShell';
 import styles from './More.module.css';
@@ -7,14 +6,12 @@ import { auth } from "@/lib/firebase";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import toast from 'react-hot-toast';
-
 const menuItems = [
     { label: 'Support', icon: '🎧', id: 'support' },
     { label: 'Terms & Conditions', icon: '📄', id: 'terms' },
     { label: 'About', icon: 'ℹ️', id: 'about' },
     { label: 'Logout', icon: '🚪', id: 'logout', variant: 'logout' },
 ];
-
 export default function MorePage() {
     const router = useRouter();
     const [authenticated, setAuthenticated] = useState(false);
@@ -29,14 +26,13 @@ export default function MorePage() {
         });
         return () => unsubscribe();
     }, [router]);
-
     const handleItemClick = async (id: string) => {
         switch (id) {
             case 'logout':
                 try {
                     await signOut(auth);
-                    toast.success("Logged out successfully!");
                     router.push("/auth"); 
+                    toast.success("Logged out successfully!");
                 } catch {
                     toast.error("Logout failed!");
                 }
@@ -58,7 +54,6 @@ export default function MorePage() {
                 toast(`Feature coming soon!`);
         }
     };
-
     if (!authenticated) {
         return (
             <div style={{ 
@@ -74,7 +69,6 @@ export default function MorePage() {
             </div>
         );
     }
-
     return (
         <LayoutShell >
             <div className={styles.menuList}>

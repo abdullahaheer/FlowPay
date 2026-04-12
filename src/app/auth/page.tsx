@@ -74,10 +74,10 @@ export default function AuthPage() {
     setLoading(true);
     try {
       await sendPasswordResetEmail(auth, formData.email.trim());
-      toast.success("Password reset link sent to your email!");
+      toast.success("Password reset link sent!");
       setIsForgotMode(false);
-    } catch  {
-      toast.error( "Something went wrong");
+    } catch {
+      toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -99,14 +99,18 @@ export default function AuthPage() {
         router.push("/dashboard");
       } else {
         // Sign Up Validations
-        if (!validateCNIC(formData.cnic)) throw new Error("Invalid CNIC Format (XXXXX-XXXXXXX-X)");
-        if (!validatePhone(formData.phone)) throw new Error("Invalid Phone (03xxxxxxxxx)");
+        if (!validateCNIC(formData.cnic)) throw new Error("Invalid CNIC Format");
+        if (!validatePhone(formData.phone)) throw new Error("Invalid Phone");
         if (!validateAge(formData.dob)) throw new Error("Minimum age 18 required");
         
         const res = await createUserWithEmailAndPassword(auth, formData.email.trim(), formData.password);
         await sendEmailVerification(res.user);
 
+        // --- Auto Generate Account & Card Details ---
         const accountNumber = "FLP-" + Math.random().toString(36).toUpperCase().substring(2, 7);
+        const cardNumber = "4213" + Math.floor(100000000000 + Math.random() * 900000000000).toString();
+        const cvv = Math.floor(100 + Math.random() * 899).toString();
+        const expiry = "12/30";
 
         await setDoc(doc(db, "users", res.user.uid), {
           uid: res.user.uid,
@@ -117,7 +121,13 @@ export default function AuthPage() {
           dob: formData.dob,
           city: formData.city,
           balance: 1000.00,
-          accountNumber,
+          accountNumber: accountNumber,
+          cardDetails: {
+            number: cardNumber,
+            cvv: cvv,
+            expiry: expiry,
+            status: "active"
+          },
           isVerified: false,
           createdAt: Timestamp.now()
         });
@@ -125,7 +135,7 @@ export default function AuthPage() {
         toast.success("Verification email sent! Check inbox.");
         setIsLogin(true);
       }
-    } catch {
+    } catch  {
       toast.error("Authentication Failed");
     } finally {
       setLoading(false);
@@ -145,8 +155,7 @@ export default function AuthPage() {
   return (
     <div style={styles.wrapper}>
       <Toaster position="top-center" />
-      
-      {/* --- Header Section --- */}
+   
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
         <div style={styles.logoBox}>
           <Image src="/logo.png" alt="Logo" width={60} height={60} style={{ borderRadius: '12px' }} />
@@ -156,55 +165,51 @@ export default function AuthPage() {
       </div>
 
       <div style={styles.card}>
-        {isForgotMode && (
-          <button onClick={() => setIsForgotMode(false)} style={{ background: 'none', border: 'none', color: '#4CAF50', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', marginBottom: '20px', fontWeight: '600' }}>
-            <ArrowLeft size={18} /> Back to Login
-          </button>
-        )}
-
-        {!isForgotMode && (
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '5px', borderRadius: '14px', marginBottom: '25px' }}>
-            <button onClick={() => setIsLogin(true)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: isLogin ? '#4CAF50' : 'transparent', color: 'white', fontWeight: '700', cursor: 'pointer' }}>Login</button>
-            <button onClick={() => setIsLogin(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: !isLogin ? '#4CAF50' : 'transparent', color: 'white', fontWeight: '700', cursor: 'pointer' }}>Join Vault</button>
-          </div>
-        )}
-
         {isForgotMode ? (
           <form onSubmit={handleResetPassword}>
+            <button onClick={() => setIsForgotMode(false)} style={{ background: 'none', border: 'none', color: '#4CAF50', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', marginBottom: '20px', fontWeight: '600' }}>
+                <ArrowLeft size={18} /> Back to Login
+            </button>
             <h2 style={{ color: 'white', fontSize: '20px', marginBottom: '10px' }}>Reset Password</h2>
-            <p style={{ color: '#9CA3AF', fontSize: '13px', marginBottom: '20px' }}>Enter email for reset link.</p>
             <div style={styles.inputWrapper}><Mail style={styles.iconLeft} size={18} /><input type="email" placeholder="Email Address" style={styles.input} onChange={(e) => setFormData({...formData, email: e.target.value})} required /></div>
             <button type="submit" disabled={loading} style={styles.btn}>{loading ? <Loader2 className="animate-spin" /> : 'Send Reset Link'}</button>
           </form>
         ) : (
-          <form onSubmit={handleAuth}>
-            {!isLogin && (
-              <>
-                <div style={styles.inputWrapper}><User style={styles.iconLeft} size={18} /><input type="text" placeholder="Full Name" style={styles.input} onChange={(e) => setFormData({...formData, name: e.target.value})} required /></div>
-                <div style={styles.inputWrapper}><Phone style={styles.iconLeft} size={18} /><input type="text" placeholder="Phone (03xxxxxxxxx)" style={styles.input} onChange={(e) => setFormData({...formData, phone: e.target.value})} required /></div>
-                <div style={styles.inputWrapper}><CreditCard style={styles.iconLeft} size={18} /><input type="text" placeholder="CNIC (12345-1234567-1)" value={formData.cnic} style={styles.input} onChange={handleCnicChange} required /></div>
-                <div style={styles.inputWrapper}><MapPin style={styles.iconLeft} size={18} /><input type="text" placeholder="City" style={styles.input} onChange={(e) => setFormData({...formData, city: e.target.value})} required /></div>
-                <div style={styles.inputWrapper}><Calendar style={styles.iconLeft} size={18} /><input type="date" style={{...styles.input, colorScheme: 'dark'}} onChange={(e) => setFormData({...formData, dob: e.target.value})} required /></div>
-              </>
-            )}
-
-            <div style={styles.inputWrapper}><Mail style={styles.iconLeft} size={18} /><input type="email" placeholder="Email Address" style={styles.input} onChange={(e) => setFormData({...formData, email: e.target.value})} required /></div>
-            <div style={styles.inputWrapper}>
-              <Lock style={styles.iconLeft} size={18} />
-              <input type={showPassword ? "text" : "password"} placeholder="Password" style={styles.input} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
-              <div onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '16px', top: '14px', cursor: 'pointer', color: '#9CA3AF' }}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</div>
+          <>
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', padding: '5px', borderRadius: '14px', marginBottom: '25px' }}>
+                <button onClick={() => setIsLogin(true)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: isLogin ? '#4CAF50' : 'transparent', color: 'white', fontWeight: '700', cursor: 'pointer' }}>Login</button>
+                <button onClick={() => setIsLogin(false)} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', backgroundColor: !isLogin ? '#4CAF50' : 'transparent', color: 'white', fontWeight: '700', cursor: 'pointer' }}>Join Vault</button>
             </div>
 
-            {isLogin && (
-              <div style={{ textAlign: 'right', marginBottom: '15px' }}>
-                <span onClick={() => setIsForgotMode(true)} style={{ color: '#4CAF50', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>Forgot Password?</span>
-              </div>
-            )}
+            <form onSubmit={handleAuth}>
+                {!isLogin && (
+                <>
+                    <div style={styles.inputWrapper}><User style={styles.iconLeft} size={18} /><input type="text" placeholder="Full Name" style={styles.input} onChange={(e) => setFormData({...formData, name: e.target.value})} required /></div>
+                    <div style={styles.inputWrapper}><Phone style={styles.iconLeft} size={18} /><input type="text" placeholder="Phone (03xxxxxxxxx)" style={styles.input} onChange={(e) => setFormData({...formData, phone: e.target.value})} required /></div>
+                    <div style={styles.inputWrapper}><CreditCard style={styles.iconLeft} size={18} /><input type="text" placeholder="CNIC (12345-1234567-1)" value={formData.cnic} style={styles.input} onChange={handleCnicChange} required /></div>
+                    <div style={styles.inputWrapper}><MapPin style={styles.iconLeft} size={18} /><input type="text" placeholder="City" style={styles.input} onChange={(e) => setFormData({...formData, city: e.target.value})} required /></div>
+                    <div style={styles.inputWrapper}><Calendar style={styles.iconLeft} size={18} /><input type="date" style={{...styles.input, colorScheme: 'dark'}} onChange={(e) => setFormData({...formData, dob: e.target.value})} required /></div>
+                </>
+                )}
 
-            <button type="submit" disabled={loading} style={styles.btn}>
-              {loading ? <Loader2 className="animate-spin" /> : (isLogin ? 'Sign In' : 'Secure My Vault')}
-            </button>
-          </form>
+                <div style={styles.inputWrapper}><Mail style={styles.iconLeft} size={18} /><input type="email" placeholder="Email Address" style={styles.input} onChange={(e) => setFormData({...formData, email: e.target.value})} required /></div>
+                <div style={styles.inputWrapper}>
+                <Lock style={styles.iconLeft} size={18} />
+                <input type={showPassword ? "text" : "password"} placeholder="Password" style={styles.input} onChange={(e) => setFormData({...formData, password: e.target.value})} required />
+                <div onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '16px', top: '14px', cursor: 'pointer', color: '#9CA3AF' }}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</div>
+                </div>
+
+                {isLogin && (
+                <div style={{ textAlign: 'right', marginBottom: '15px' }}>
+                    <span onClick={() => setIsForgotMode(true)} style={{ color: '#4CAF50', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>Forgot Password?</span>
+                </div>
+                )}
+
+                <button type="submit" disabled={loading} style={styles.btn}>
+                {loading ? <Loader2 className="animate-spin" /> : (isLogin ? 'Sign In' : 'Secure My Vault')}
+                </button>
+            </form>
+          </>
         )}
       </div>
     </div>
