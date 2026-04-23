@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { LayoutShell } from '@/components/Layout/LayoutShell';
-import { BalanceCard, ServicesGrid, PromoBanner } from '@/components/Banking/Dashboard';
+import { BalanceCard, ServicesGrid, PromoBanner, QuickServices } from '@/components/Banking/Dashboard';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -43,11 +43,13 @@ export default function DashboardPage() {
   }
 
   return (
+    
     <LayoutShell>
       <BalanceCard />
       <div style={{ padding: '0 16px' }}>
-        <PromoBanner />
-        <ServicesGrid />
+      <PromoBanner />
+      <ServicesGrid />
+      <QuickServices />
       </div>
     </LayoutShell>
   );

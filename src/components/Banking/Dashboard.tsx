@@ -6,13 +6,17 @@ import styles from './Dashboard.module.css';
 import { auth, db } from '@/lib/firebase';
 import { doc, onSnapshot, updateDoc, increment, getDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { 
+    Eye, EyeOff, Plus, History, User, 
+    Car, Smartphone, Zap, Globe, Gift 
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
-// --- BALANCE CARD COMPONENT ---
-export const BalanceCard: React.FC = () => {
+// --- 1. BALANCE CARD ---
+export const BalanceCard = () => {
     const [showBalance, setShowBalance] = useState(true);
     const [userData, setUserData] = useState({
-        name: 'Loading...',
+        name: 'User',
         balance: 0,
         accountNumber: 'FLP-0000'
     });
@@ -39,90 +43,75 @@ export const BalanceCard: React.FC = () => {
 
     const copyAccountNumber = () => {
         navigator.clipboard.writeText(userData.accountNumber);
-        toast.success("Account ID Copied!", {
-            style: { background: '#333', color: '#fff', borderRadius: '10px' }
-        });
+        toast.success("Account ID Copied!");
     };
 
     return (
         <div className={styles.balanceSection}>
-            <div className={styles.balanceHeader}>
-                <div onClick={copyAccountNumber} style={{ cursor: 'pointer' }}>
-                    <span className={styles.balanceLabel}>Hi, {userData.name}</span>
-                    <p style={{ fontSize: '11px', margin: '2px 0 0 0', opacity: 0.7, letterSpacing: '0.5px' }}>
-                        ID: {userData.accountNumber} 📋
-                    </p>
+            <div className={styles.balanceContent}>
+                <div className={styles.balanceInfo}>
+                    <div onClick={copyAccountNumber} style={{ cursor: 'pointer' }}>
+                        <span className={styles.balanceLabel}>Hi, {userData.name}</span>
+                        <p style={{ fontSize: '11px', opacity: 0.7, margin: '2px 0' }}>ID: {userData.accountNumber} 📋</p>
+                    </div>
+                    <div className={styles.balanceAmountWrapper}>
+                        <h1 className={styles.balanceAmount}>
+                            {showBalance ? userData.balance.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '••••••'}
+                            <span className={styles.currency}>PKR</span>
+                        </h1>
+                        <button onClick={() => setShowBalance(!showBalance)} className={styles.eyeIcon}>
+                            {showBalance ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                    </div>
                 </div>
-                <button onClick={() => setShowBalance(!showBalance)} className={styles.eyeIcon}>
-                    {showBalance ? '👁️' : '🙈'}
-                </button>
-            </div>
 
-            <div className={styles.balanceAmount}>
-                {showBalance ?
-                    userData.balance.toLocaleString('en-US', { minimumFractionDigits: 2 }) :
-                    '••••••'
-                } <span className={styles.currency}>PKR</span>
-            </div>
-
-            <div className={styles.quickActions}>
-                <Link href="/add-money" style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}>
-                    <div className={styles.actionItem}>
-                        <div className={styles.actionIcon}>+</div>
-                        <span>Add money</span>
-                    </div>
-                </Link>
-
-                <Link href="/transactions" style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div className={styles.actionItem}>
-                        <div className={styles.actionIcon}>⇄</div>
+                <div className={styles.quickActions}>
+                    <Link href="/add-money" className={styles.actionItem}>
+                        <div className={styles.actionIcon}><Plus size={22} /></div>
+                        <span>Add Money</span>
+                    </Link>
+                    <Link href="/transactions" className={styles.actionItem}>
+                        <div className={styles.actionIcon}><History size={22} /></div>
                         <span>History</span>
-                    </div>
-                </Link>
-
-                <Link href="/profile" style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div className={styles.actionItem}>
-                        <div className={styles.actionIcon}>👤</div>
+                    </Link>
+                    <Link href="/profile" className={styles.actionItem}>
+                        <div className={styles.actionIcon}><User size={22} /></div>
                         <span>Account</span>
-                    </div>
-                </Link>
+                    </Link>
+                </div>
             </div>
         </div>
     );
 };
 
-// --- SERVICES GRID COMPONENT ---
-const services = [
-    { name: 'FlowPay Transfer', icon: '👤', href: '/transfers', desc: 'Send to FlowPay users' },
-    { name: 'Request Money', icon: '💰', href: '/request-money', desc: 'Ask for payment' },
-    { name: 'Bank Transfer', icon: '🏦', href: '/bank-transfer', desc: 'Send to local banks' },
-];
+// --- 2. MAIN SERVICES ---
+export const ServicesGrid = () => {
+    const mainServices = [
+        { name: 'FlowPay Transfer', icon: '👤', href: '/transfers', desc: 'To FlowPay users' },
+        { name: 'Request Money', icon: '💰', href: '/request-money', desc: 'Ask for payment' },
+        { name: 'Bank Transfer', icon: '🏦', href: '/bank-transfer', desc: 'To local banks' },
+    ];
 
-export const ServicesGrid: React.FC = () => {
     return (
-        <div className={styles.servicesSection}>
+        <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Main Services</h2>
             <div className={styles.servicesGrid}>
-                {services.map((service, index) => (
-                    <Link href={service.href} key={index} style={{ textDecoration: 'none' }}>
-                        <div className={styles.serviceItem}>
-                            <div className={styles.serviceIcon}>{service.icon}</div>
-                            <div className={styles.serviceInfo}>
-                                <span className={styles.serviceName}>{service.name}</span>
-                                <span style={{ fontSize: '11px', color: '#9CA3AF', display: 'block', marginTop: '4px' }}>
-                                    {service.desc}
-                                </span>
-                            </div>
+                {mainServices.map((s, i) => (
+                    <Link href={s.href} key={i} className={styles.serviceItem}>
+                        <span className={styles.serviceIconMain}>{s.icon}</span>
+                        <div>
+                            <span className={styles.serviceName}>{s.name}</span>
+                            <span className={styles.serviceDesc}>{s.desc}</span>
                         </div>
                     </Link>
                 ))}
             </div>
-        </div>
+        </section>
     );
 };
 
-// --- PROMO BANNER (GIFT LOGIC) ---
-export const PromoBanner: React.FC = () => {
+// --- 3. PROMO/GIFT BANNER (WITH 24H LOCK & TIMESTAMP) ---
+export const PromoBanner = () => {
     const [isSpinning, setIsSpinning] = useState(false);
     const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
@@ -159,36 +148,35 @@ export const PromoBanner: React.FC = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const handleClaimGift = async () => {
+    const claimGift = async () => {
         const user = auth.currentUser;
         if (!user || isSpinning || timeLeft) return;
 
         setIsSpinning(true);
-        const loadToast = toast.loading("Spinning for gift...");
+        const tid = toast.loading("Spinning for gift...");
 
         try {
-            const randomAmount = Math.floor(Math.random() * 9) + 1; // 1 to 9 PKR
+            const amount = Math.floor(Math.random() * 9) + 1;
             const userRef = doc(db, "users", user.uid);
 
             await updateDoc(userRef, {
-                balance: increment(randomAmount),
+                balance: increment(amount),
                 lastGiftClaimed: Timestamp.now(),
                 transactions: arrayUnion({
                     id: `GIFT-${Date.now()}`,
                     type: 'credit',
                     category: 'Cash Gift',
                     title: 'Daily Reward',
-                    amount: randomAmount,
+                    amount: amount,
                     date: new Date().toISOString(),
                     status: 'Completed'
                 })
             });
 
-            toast.success(`Mubarak! You received PKR ${randomAmount}`, { id: loadToast });
+            toast.success(`Mubarak! Received PKR ${amount}`, { id: tid });
             setTimeLeft("23h 59m remaining");
-        } catch (error) {
-            console.error(error);
-            toast.error("Process failed", { id: loadToast });
+        } catch {
+            toast.error("Failed to claim", { id: tid });
         } finally {
             setIsSpinning(false);
         }
@@ -197,7 +185,7 @@ export const PromoBanner: React.FC = () => {
     return (
         <div 
             className={`${styles.promoBanner} ${timeLeft ? styles.disabledBanner : ''}`} 
-            onClick={handleClaimGift}
+            onClick={claimGift}
         >
             <div className={styles.promoText}>
                 {timeLeft ? (
@@ -207,8 +195,35 @@ export const PromoBanner: React.FC = () => {
                 )}
             </div>
             <div className={`${styles.promoIcon} ${isSpinning ? styles.spinAnimation : ''}`}>
-                {isSpinning ? '⏳' : (timeLeft ? '🔒' : '🎁')}
+                {isSpinning ? '⏳' : (timeLeft ? '🔒' : <Gift size={32} />)}
             </div>
         </div>
+    );
+};
+
+// --- 4. UTILITIES ---
+export const QuickServices = () => {
+    const utilityServices = [
+        { name: 'M-Tag', icon: <Car size={22} />, desc: ' Recharge', color: '#3b82f6' },
+        { name: 'Bundles', icon: <Smartphone size={22} />, desc: ' Mobile Data', color: '#8b5cf6' },
+        { name: 'Electricity', icon: <Zap size={22} />, desc: ' Bill Pay', color: '#f59e0b' },
+        { name: 'Internet', icon: <Globe size={22} />, desc: ' Fiber/4G', color: '#10b981' },
+    ];
+
+    return (
+        <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Utilities & Top-ups</h2>
+            <div className={styles.quickGrid}>
+                {utilityServices.map((u, i) => (
+                    <div key={i} className={styles.quickBox}>
+                        <div className={styles.quickIcon} style={{color: u.color}}>{u.icon}</div>
+                        <div className={styles.quickInfo}>
+                            <span className={styles.quickName}>{u.name}</span>
+                            <span className={styles.quickDesc}>{u.desc}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
     );
 };
