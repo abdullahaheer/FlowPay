@@ -9,7 +9,7 @@ import {
 import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Loader2, ChevronDown, CheckCircle2, Lock, UserCircle2 } from 'lucide-react';
+import { Loader2, ChevronDown, UserCircle2 } from 'lucide-react';
 
 interface FlowUser {
     id: string;
@@ -17,7 +17,6 @@ interface FlowUser {
     accountNumber: string;
 }
 
-// 1. Asal Logic wala component
 function TransferContent() {
     const [users, setUsers] = useState<FlowUser[]>([]);
     const [selectedUser, setSelectedUser] = useState<FlowUser | null>(null);
@@ -61,7 +60,7 @@ function TransferContent() {
                     const targetUser = userList.find(u => u.id === reqUserId);
                     if (targetUser) setSelectedUser(targetUser);
                 }
-            } catch (err) { notifyError("Failed to load accounts"); }
+            } catch { notifyError("Failed to load accounts"); }
         };
         fetchAndPrefill();
     }, [currentUserId, searchParams]);
@@ -81,7 +80,7 @@ function TransferContent() {
             await reauthenticateWithCredential(user, credential);
             await executeFlowTransfer();
             setShowPassModal(false);
-        } catch (error) { notifyError("Incorrect Password!"); } 
+        } catch { notifyError("Incorrect Password!"); } 
         finally { setVerifying(false); }
     };
 

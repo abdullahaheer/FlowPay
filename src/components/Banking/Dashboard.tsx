@@ -204,10 +204,10 @@ export const PromoBanner = () => {
 // --- 4. UTILITIES ---
 export const QuickServices = () => {
     const utilityServices = [
-        { name: 'M-Tag', icon: <Car size={22} />, desc: ' Recharge', color: '#3b82f6' },
-        { name: 'Bundles', icon: <Smartphone size={22} />, desc: ' Mobile Data', color: '#8b5cf6' },
-        { name: 'Electricity', icon: <Zap size={22} />, desc: ' Bill Pay', color: '#f59e0b' },
-        { name: 'Internet', icon: <Globe size={22} />, desc: ' Fiber/4G', color: '#10b981' },
+        { name: 'M-Tag', icon: <Car size={22} />, href: '/m-tag', desc: ' Recharge', color: '#3b82f6' },
+        { name: 'Bundles', icon: <Smartphone size={22} />, href: '/bundles', desc: ' Mobile Data', color: '#8b5cf6' },
+        { name: 'Electricity', icon: <Zap size={22} />, href: '/electricity-bills', desc: ' Bill Pay', color: '#f59e0b' },
+        { name: 'Internet', icon: <Globe size={22} />, href: '', desc: ' Fiber/4G', color: '#10b981' },
     ];
 
     return (
@@ -215,13 +215,13 @@ export const QuickServices = () => {
             <h2 className={styles.sectionTitle}>Utilities & Top-ups</h2>
             <div className={styles.quickGrid}>
                 {utilityServices.map((u, i) => (
-                    <div key={i} className={styles.quickBox}>
+                    <Link href={u.href} key={i} className={styles.quickBox}>
                         <div className={styles.quickIcon} style={{color: u.color}}>{u.icon}</div>
                         <div className={styles.quickInfo}>
                             <span className={styles.quickName}>{u.name}</span>
                             <span className={styles.quickDesc}>{u.desc}</span>
                         </div>
-                    </div>
+                    </Link>
                 ))}
             </div>
         </section>
