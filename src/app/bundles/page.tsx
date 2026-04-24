@@ -6,7 +6,7 @@ import { doc, runTransaction, serverTimestamp, collection } from 'firebase/fires
 import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { Loader2, ShieldCheck, Smartphone, CheckCircle2, Info } from 'lucide-react';
+import { Loader2, ShieldCheck, Smartphone, Info } from 'lucide-react';
 
 interface Bundle {
     id: string;
@@ -79,7 +79,6 @@ function BundleContent() {
     const [selectedSim, setSelectedSim] = useState<keyof BundleData>('Jazz');
     const [phoneSuffix, setPhoneSuffix] = useState<string>(''); // User enters only the remaining 9 digits
     const [selectedBundle, setSelectedBundle] = useState<Bundle | null>(null);
-    const [loading, setLoading] = useState<boolean>(false);
     
     const [showReviewModal, setShowReviewModal] = useState<boolean>(false);
     const [showPassModal, setShowPassModal] = useState<boolean>(false);
@@ -126,37 +125,55 @@ function BundleContent() {
     };
 
     const executeBundlePurchase = async () => {
-        if (!selectedBundle || !currentUserId) return;
-        setLoading(true);
-        try {
-            await runTransaction(db, async (transaction) => {
-                const userRef = doc(db, "users", currentUserId);
-                const uDoc = await transaction.get(userRef);
+    if (!selectedBundle || !currentUserId) return;
+    
+    try {
+        await runTransaction(db, async (transaction) => {
+            const userRef = doc(db, "users", currentUserId);
+            const uDoc = await transaction.get(userRef);
 
-                if (!uDoc.exists()) throw new Error("User record not found");
-                if (uDoc.data().balance < selectedBundle.price) throw new Error("Insufficient Balance");
+            if (!uDoc.exists()) throw new Error("User record not found");
+            const currentBalance = uDoc.data().balance || 0;
+            
+            if (currentBalance < selectedBundle.price) throw new Error("INSUFFICIENT_BALANCE");
 
-                transaction.update(userRef, { balance: uDoc.data().balance - selectedBundle.price });
+            // 1. Update Balance
+            transaction.update(userRef, { balance: currentBalance - selectedBundle.price });
 
-                const transRef = doc(collection(db, "transactions"));
-                transaction.set(transRef, {
-                    userId: currentUserId,
-                    amount: selectedBundle.price,
-                    type: 'debit',
-                    category: 'Mobile Bundle',
-                    title: `${selectedSim} ${selectedBundle.name}`,
-                    description: `${selectedBundle.data} Data, ${selectedBundle.mins} Mins, ${selectedBundle.validity}`,
-                    status: 'success',
-                    referenceId: fullNumber,
-                    timestamp: serverTimestamp()
-                });
+            // 2. Add Transaction Record
+            const transRef = doc(collection(db, "transactions"));
+            transaction.set(transRef, {
+                userId: currentUserId,
+                amount: selectedBundle.price,
+                type: 'debit',
+                category: 'Mobile Bundle',
+                title: `${selectedSim.toUpperCase()} ${selectedBundle.name}`,
+                description: `${selectedBundle.data} Data, ${selectedBundle.mins} Mins, ${selectedBundle.validity}`,
+                status: 'success',
+                isIncoming: false, // Minus logic for history
+                referenceId: fullNumber,
+                timestamp: serverTimestamp()
             });
 
-            notifySuccess(`${selectedBundle.name} Activated!`);
-            router.push('/dashboard');
-        } catch  { notifyError( "Failed to process"); } 
-        finally { setLoading(false); }
-    };
+            // 3. Add Notification (NEW PART)
+            const notificationRef = doc(collection(db, "notifications"));
+            transaction.set(notificationRef, {
+                userId: currentUserId,
+                title: "Bundle Activated!",
+                message: `Your ${selectedSim.toUpperCase()} ${selectedBundle.name} has been activated on ${fullNumber}. Enjoy ${selectedBundle.data} data and ${selectedBundle.mins} minutes.`,
+                type: 'package',
+                isRead: false,
+                timestamp: serverTimestamp()
+            });
+        });
+
+        notifySuccess(`${selectedBundle.name} Activated!`);
+        router.push('/dashboard');
+    } catch (err: any) { 
+        notifyError(err.message === "INSUFFICIENT_BALANCE" ? "Insufficient Balance!" : "Failed to process"); 
+    } finally {
+    }
+};
 
     return (
         <div style={{ backgroundColor: '#000D1A', minHeight: '100vh', color: '#FFFFFF' }}>

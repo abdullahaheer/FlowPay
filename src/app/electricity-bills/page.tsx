@@ -18,8 +18,8 @@ const MOCK_BILLS: Record<string, number> = {
     "55555555555555": 4300,
     "66666666666666": 7200,
     "77777777777777": 1500,
-    "88888888888888": 11000,
-    "99999999999999": 6400,
+    "88888888888888": 1100,
+    "99999999999999": 3200,
 };
 
 const COMPANIES = [
@@ -99,7 +99,10 @@ function BillPaymentContent() {
 
                 if (currentBalance < amount) throw new Error("INSUFFICIENT_BALANCE");
 
+                // 1. Deduct Balance
                 transaction.update(userRef, { balance: currentBalance - amount });
+
+                // 2. Add Transaction Record (Minus logic)
                 const newTransRef = doc(collection(db, "transactions")); 
                 transaction.set(newTransRef, {
                     userId: currentUserId,
@@ -109,17 +112,31 @@ function BillPaymentContent() {
                     title: `Electricity - ${company.toUpperCase()}`,
                     description: `Reference: ${billId}`,
                     status: 'success',
+                    isIncoming: false, // Is se history mein minus (-) show hoga
                     referenceId: billId,
                     timestamp: serverTimestamp()
                 });
+
+                // 3. Add Notification (NEW PART)
+                const notificationRef = doc(collection(db, "notifications"));
+                transaction.set(notificationRef, {
+                    userId: currentUserId,
+                    title: "Bill Payment Success",
+                    message: `Your ${company.toUpperCase()} electricity bill of Rs. ${amount} has been paid successfully.`,
+                    type: 'payment',
+                    isRead: false,
+                    timestamp: serverTimestamp()
+                });
             });
-            notifySuccess("Bill Paid!");
+
+            notifySuccess("Bill Paid Successfully!");
             router.push('/dashboard');
         } catch (err: any) { 
-            notifyError(err.message === "INSUFFICIENT_BALANCE" ? "Insufficient Balance!" : "Failed!");
-        } finally { setLoading(false); }
+            notifyError(err.message === "INSUFFICIENT_BALANCE" ? "Insufficient Balance!" : "Transaction Failed!");
+        } finally { 
+            setLoading(false); 
+        }
     };
-
     return (
         <div style={{ backgroundColor: '#000D1A', minHeight: '100vh', color: '#FFFFFF' }}>
             <LayoutShell headerTitle="Electricity Bill" showBack>

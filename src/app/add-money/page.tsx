@@ -15,17 +15,13 @@ export default function AddMoneyPage() {
     
     const router = useRouter();
 
-    // --- Validation Logic ---
     const parsedAmount = parseFloat(amount);
     const isAmountValid = parsedAmount >= 100 && parsedAmount <= 50000;
     const isCardNumberValid = cardData.number.replace(/\s/g, '').length === 16;
-    const isExpiryValid = cardData.expiry.length === 5; // MM/YY
+    const isExpiryValid = cardData.expiry.length === 5;
     const isCvvValid = cardData.cvv.length === 3;
-
-    // Button tab hi enable hoga jab sab kuch sahi ho
     const isFormValid = isAmountValid && isCardNumberValid && isExpiryValid && isCvvValid;
 
-    // Fetch Real-time Balance for UI
     useEffect(() => {
         if (!auth.currentUser) return;
         const unsub = onSnapshot(doc(db, "users", auth.currentUser.uid), (doc) => {
@@ -63,41 +59,43 @@ export default function AddMoneyPage() {
         try {
             const userRef = doc(db, "users", uid);
 
-            // 1. Balance Update (Firestore increment)
+            // 1. Balance Update
             await updateDoc(userRef, {
                 balance: increment(parsedAmount)
             });
 
-            // 2. Transaction Record add kro
+            // 2. Transaction Record (Fixed for History Page)
             await addDoc(collection(db, "transactions"), {
-                userId: uid,
+                userId: uid,           // Search key for history
                 amount: parsedAmount,
                 type: 'deposit',
-                method: 'Card Payment',
+                category: 'Top-up',
+                title: 'Money Added',   // Shows instead of "undefined"
+                subTitle: 'via Debit/Credit Card',
                 status: 'success',
+                isIncoming: true,      // Makes it GREEN (+) in history
                 timestamp: serverTimestamp()
             });
 
-            // 3. Notification Dropdown ke liye entry add kro
+            // 3. Notification
             await addDoc(collection(db, "notifications"), {
                 userId: uid,
-                title: "Money Deposited",
-                message: `Rs. ${parsedAmount.toLocaleString()} has been added to your wallet successfully.`,
-                type: 'receive', // Isse green icon ayega CSS ke mutabiq
+                title: "Deposit Successful",
+                message: `Rs. ${parsedAmount.toLocaleString()} added to your wallet.`,
+                type: 'receive',
                 isRead: false,
                 timestamp: serverTimestamp()
             });
 
-            toast.success(`Rs. ${parsedAmount.toLocaleString()} Added Successfully!`);
+            toast.success(`Rs. ${parsedAmount.toLocaleString()} Added!`);
             
-            // Redirect to dashboard after a short delay
             setTimeout(() => {
                 router.push('/dashboard');
             }, 1500);
 
         } catch (error) {
             console.error("Transaction Error:", error);
-            toast.error("Payment failed. Please try again.");
+            toast.error("Payment failed.");
         } finally {
             setLoading(false);
         }
@@ -107,7 +105,7 @@ export default function AddMoneyPage() {
         <LayoutShell headerTitle="Add Money" showBack>
             <div style={{ padding: '20px', maxWidth: '480px', margin: '0 auto', color: 'white' }}>
                 
-                {/* Balance Display Card */}
+                {/* Balance Display */}
                 <div style={{ 
                     background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', 
                     padding: '25px', 
@@ -128,7 +126,7 @@ export default function AddMoneyPage() {
                 </div>
 
                 <form onSubmit={handleAddBalance}>
-                    {/* Amount Input Section */}
+                    {/* Amount Input */}
                     <div style={{ marginBottom: '25px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', height: '20px', marginBottom: '8px' }}>
                             <label style={{ fontSize: '13px', color: '#9CA3AF' }}>Enter Amount</label>
@@ -140,12 +138,8 @@ export default function AddMoneyPage() {
                         </div>
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                             <span style={{ 
-                                position: 'absolute', 
-                                left: '20px', 
-                                fontSize: '24px', 
-                                fontWeight: '800', 
-                                color: isAmountValid ? '#4CAF50' : '#64748b',
-                                transition: '0.3s'
+                                position: 'absolute', left: '20px', fontSize: '24px', fontWeight: '800', 
+                                color: isAmountValid ? '#4CAF50' : '#64748b', transition: '0.3s'
                             }}>Rs.</span>
                             <input 
                                 type="number"
@@ -153,51 +147,39 @@ export default function AddMoneyPage() {
                                 onChange={(e) => setAmount(e.target.value)}
                                 placeholder="0"
                                 style={{ 
-                                    width: '100%', 
-                                    padding: '18px 20px 18px 65px', 
-                                    background: '#0a1622', 
+                                    width: '100%', padding: '18px 20px 18px 65px', background: '#0a1622', 
                                     border: `2px solid ${isAmountValid ? '#4CAF50' : 'rgba(255,255,255,0.1)'}`, 
-                                    borderRadius: '18px', 
-                                    color: '#4CAF50', 
-                                    fontSize: '26px', 
-                                    fontWeight: '800', 
-                                    outline: 'none',
-                                    transition: '0.3s'
+                                    borderRadius: '18px', color: '#4CAF50', fontSize: '26px', fontWeight: '800', 
+                                    outline: 'none', transition: '0.3s'
                                 }}
                             />
                         </div>
                     </div>
 
-                    {/* Card Details Card */}
+                    {/* Card Details */}
                     <div style={{ 
-                        background: '#0a1622', 
-                        padding: '25px', 
-                        borderRadius: '24px', 
-                        marginBottom: '30px', 
-                        border: '1px solid rgba(255,255,255,0.05)' 
+                        background: '#0a1622', padding: '25px', borderRadius: '24px', 
+                        marginBottom: '30px', border: '1px solid rgba(255,255,255,0.05)' 
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                             <Lock size={18} color={isCardNumberValid ? "#4CAF50" : "#9CA3AF"} />
                             <span style={{ fontSize: '14px', fontWeight: '600' }}>Secure Card Payment</span>
                         </div>
 
-                        {/* Card Number */}
                         <input 
                             name="number" 
                             value={cardData.number} 
                             onChange={handleCardChange}
                             placeholder="0000 0000 0000 0000" 
                             style={{ 
-                                width: '100%', padding: '15px', 
-                                background: 'rgba(255,255,255,0.03)', 
+                                width: '100%', padding: '15px', background: 'rgba(255,255,255,0.03)', 
                                 border: `1px solid ${isCardNumberValid ? '#4CAF50' : 'rgba(255,255,255,0.1)'}`, 
-                                borderRadius: '12px', color: 'white', outline: 'none', 
-                                marginBottom: '15px', letterSpacing: '2.5px', fontSize: '16px'
+                                borderRadius: '12px', color: 'white', outline: 'none', marginBottom: '15px', 
+                                letterSpacing: '2.5px', fontSize: '16px'
                             }} 
                         />
 
                         <div style={{ display: 'flex', gap: '15px' }}>
-                            {/* Expiry */}
                             <input 
                                 name="expiry" value={cardData.expiry} onChange={handleCardChange} 
                                 placeholder="MM/YY" 
@@ -207,7 +189,6 @@ export default function AddMoneyPage() {
                                     borderRadius: '12px', color: 'white', outline: 'none' 
                                 }} 
                             />
-                            {/* CVV */}
                             <input 
                                 name="cvv" value={cardData.cvv} onChange={handleCardChange} 
                                 type="password" placeholder="CVV" 
@@ -220,32 +201,24 @@ export default function AddMoneyPage() {
                         </div>
                     </div>
 
-                    {/* Submit Button */}
                     <button 
                         type="submit"
                         disabled={!isFormValid || loading}
                         style={{ 
                             width: '100%', padding: '20px', borderRadius: '20px', 
                             background: isFormValid ? 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)' : '#1e293b', 
-                            color: isFormValid ? 'white' : '#64748b', 
-                            fontWeight: '800', border: 'none', 
-                            cursor: isFormValid ? 'pointer' : 'not-allowed',
-                            display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px',
-                            transition: '0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: isFormValid ? '0 10px 20px rgba(76, 175, 80, 0.2)' : 'none'
+                            color: isFormValid ? 'white' : '#64748b', fontWeight: '800', border: 'none', 
+                            cursor: isFormValid ? 'pointer' : 'not-allowed', display: 'flex', 
+                            justifyContent: 'center', alignItems: 'center', gap: '12px', transition: '0.4s'
                         }}
                     >
                         {loading ? <Loader2 className="animate-spin" size={22} /> : (
                             <>
                                 <ShieldCheck size={22} />
-                                {isFormValid ? "Confirm & Pay" : "Enter Correct Details"}
+                                {isFormValid ? `Pay Rs. ${parsedAmount.toLocaleString()}` : "Enter Details"}
                             </>
                         )}
                     </button>
-                    
-                    <div style={{ textAlign: 'center', marginTop: '20px', opacity: 0.5, fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                         <Lock size={12} /> Your payment is encrypted and secure.
-                    </div>
                 </form>
             </div>
         </LayoutShell>

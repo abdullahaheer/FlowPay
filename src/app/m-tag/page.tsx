@@ -14,6 +14,7 @@ function MTagContent() {
     const [mtagId, setMtagId] = useState<string>('');
     const [amount, setAmount] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(false);
+    const [isLimitExceeded, setIsLimitExceeded] = useState<boolean>(false);
     
     // Security Modal States
     const [showPassModal, setShowPassModal] = useState<boolean>(false);
@@ -26,7 +27,7 @@ function MTagContent() {
     const notifyError = (msg: string) => toast.error(msg, { style: { background: '#ff4b4b', color: '#fff' } });
     const notifySuccess = (msg: string) => toast.success(msg, { style: { background: '#4CAF50', color: '#fff' } });
 
-    // Handle M-Tag ID Input (Only 8 digits)
+    // Handle M-Tag ID Input (Strictly 8 digits)
     const handleIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         if (/^\d*$/.test(val) && val.length <= 8) {
@@ -34,9 +35,30 @@ function MTagContent() {
         }
     };
 
+    // Handle Amount Input with Red Text logic
+    const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        const numVal = parseFloat(val);
+        
+        setAmount(val);
+
+        // Check limit for UI feedback (Red Text)
+        if (numVal > 5000) {
+            setIsLimitExceeded(true);
+        } else {
+            setIsLimitExceeded(false);
+        }
+    };
+
     const handleInitialSubmit = () => {
+        const rechargeAmount = parseFloat(amount);
+
         if (mtagId.length < 8) return notifyError("Invalid M-Tag ID (8 digits required)");
-        if (!amount || parseFloat(amount) < 100) return notifyError("Minimum recharge is PKR 100");
+        if (!amount || rechargeAmount < 100) return notifyError("Minimum recharge is PKR 100");
+        
+        // Prevent modal if limit exceeded
+        if (rechargeAmount > 5000) return; 
+        
         setShowPassModal(true);
     };
 
@@ -47,8 +69,6 @@ function MTagContent() {
         try {
             const credential = EmailAuthProvider.credential(user.email, password);
             await reauthenticateWithCredential(user, credential);
-            
-            // Password match hone ke baad transaction execute karein
             await executeMTagRecharge();
             setShowPassModal(false);
         } catch { 
@@ -60,13 +80,8 @@ function MTagContent() {
 
     const executeMTagRecharge = async () => {
         const rechargeAmount = parseFloat(amount);
-
-        // 1. Max Limit Check (10,000 PKR)
-        if (rechargeAmount > 10000) {
-            return notifyError("Maximum recharge limit is PKR 10,000");
-        }
-
         setLoading(true);
+
         try {
             if (!currentUserId) return;
 
@@ -75,31 +90,41 @@ function MTagContent() {
                 const uDoc = await transaction.get(userRef);
 
                 if (!uDoc.exists()) throw new Error("User record not found");
-                
                 const currentBalance = uDoc.data().balance || 0;
 
-                // 2. Insufficient Balance Check (Using Toast instead of Error Throw)
                 if (currentBalance < rechargeAmount) {
-                    // Hum transaction ke andar hi notify kar dein gy
                     throw new Error("INSUFFICIENT_BALANCE");
                 }
 
-                // 3. Update User Balance
+                // 1. Update Balance
                 transaction.update(userRef, { 
                     balance: currentBalance - rechargeAmount 
                 });
 
-                // 4. Save to History (Using unique ID)
+                // 2. Create Transaction History Entry
                 const newTransRef = doc(collection(db, "transactions")); 
                 transaction.set(newTransRef, {
                     userId: currentUserId,
                     amount: rechargeAmount,
                     type: 'debit',
-                    category: 'M-Tag Recharge',
+                    category: 'M-Tag',
                     title: 'Motorway M-Tag',
-                    description: `Recharge for M-Tag ID: ${mtagId}`,
+                    subTitle: `ID: ${mtagId}`,
+                    description: `Recharge for M-Tag account ${mtagId}`,
                     status: 'success',
+                    isIncoming: false, // Minus logic ke liye
                     referenceId: mtagId,
+                    timestamp: serverTimestamp()
+                });
+
+                // 3. Add Notification (NEW PART ADDED)
+                const notificationRef = doc(collection(db, "notifications"));
+                transaction.set(notificationRef, {
+                    userId: currentUserId,
+                    title: "M-Tag Recharge Success",
+                    message: `Rs. ${rechargeAmount} has been recharged to M-Tag ID: ${mtagId}.`,
+                    type: 'payment',
+                    isRead: false,
                     timestamp: serverTimestamp()
                 });
             });
@@ -108,13 +133,10 @@ function MTagContent() {
             router.push('/dashboard');
 
         } catch (err: any) { 
-            console.error("Transaction Error:", err);
-            
-            // Custom Toast Messages for Specific Errors
             if (err.message === "INSUFFICIENT_BALANCE") {
                 notifyError("Insufficient Balance! Please top up your account.");
             } else {
-                notifyError(err.message || "Transaction failed. Please try again.");
+                notifyError("Transaction failed. Please try again.");
             }
         } finally { 
             setLoading(false); 
@@ -128,31 +150,51 @@ function MTagContent() {
                     
                     {/* Amount Input Section */}
                     <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                        <p style={{ fontSize: '11px', color: '#4CAF50', fontWeight: 'bold', letterSpacing: '1.5px' }}>
-                            ENTER RECHARGE AMOUNT
+                        <p style={{ 
+                            fontSize: '11px', 
+                            color: isLimitExceeded ? '#ff4b4b' : '#4CAF50', // RED if exceeded
+                            fontWeight: 'bold', 
+                            letterSpacing: '1.5px',
+                            transition: '0.3s'
+                        }}>
+                            {isLimitExceeded ? "LIMIT EXCEEDED (MAX 5,000)" : "ENTER RECHARGE AMOUNT (MAX 5,000)"}
                         </p>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#4CAF50' }}>PKR</span>
+                            <span style={{ 
+                                fontSize: '24px', 
+                                fontWeight: 'bold', 
+                                color: isLimitExceeded ? '#ff4b4b' : '#4CAF50' 
+                            }}>PKR</span>
                             <input 
                                 type="number" 
                                 value={amount} 
-                                onChange={(e) => setAmount(e.target.value)}
-                                placeholder="0.00"
-                                style={{ background: 'transparent', border: 'none', fontSize: '55px', fontWeight: '800', color: '#4CAF50', width: '250px', textAlign: 'center', outline: 'none' }}
+                                onChange={handleAmountChange}
+                                placeholder="0"
+                                style={{ 
+                                    background: 'transparent', 
+                                    border: 'none', 
+                                    fontSize: '55px', 
+                                    fontWeight: '800', 
+                                    color: isLimitExceeded ? '#ff4b4b' : '#4CAF50', // RED if exceeded
+                                    width: '250px', 
+                                    textAlign: 'center', 
+                                    outline: 'none',
+                                    transition: '0.3s'
+                                }}
                             />
                         </div>
                     </div>
 
                     {/* M-Tag ID Input Section */}
                     <div style={{ marginBottom: '40px' }}>
-                        <p style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '10px' }}>M-Tag ID (8 Digits)</p>
+                        <p style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '10px' }}>M-Tag ID (8 Digits Only)</p>
                         <div style={{ background: '#0a1622', padding: '18px 20px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <Car size={24} color="#4CAF50" />
                             <input 
                                 type="text"
                                 value={mtagId}
                                 onChange={handleIdChange}
-                                placeholder="e.g. 12345678"
+                                placeholder="12345678"
                                 style={{ background: 'transparent', border: 'none', color: 'white', width: '100%', outline: 'none', fontSize: '16px' }}
                             />
                         </div>
@@ -161,14 +203,26 @@ function MTagContent() {
                     {/* Action Button */}
                     <button 
                         onClick={handleInitialSubmit} 
-                        disabled={loading}
-                        style={{ width: '100%', padding: '20px', borderRadius: '22px', background: 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer', transition: '0.3s' }}
+                        disabled={loading || isLimitExceeded} // Disable button if limit exceeded
+                        style={{ 
+                            width: '100%', 
+                            padding: '20px', 
+                            borderRadius: '22px', 
+                            background: isLimitExceeded 
+                                ? '#1e293b' // Dark gray if disabled
+                                : 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)', 
+                            color: isLimitExceeded ? '#9CA3AF' : 'white', 
+                            fontWeight: 'bold', 
+                            border: 'none', 
+                            cursor: isLimitExceeded ? 'not-allowed' : 'pointer', 
+                            transition: '0.3s' 
+                        }}
                     >
-                        {loading ? <Loader2 className="animate-spin mx-auto" /> : "Verify & Recharge"}
+                        {loading ? <Loader2 className="animate-spin mx-auto" /> : isLimitExceeded ? "Limit Exceeded" : "Verify & Recharge"}
                     </button>
                 </div>
 
-                {/* Password Modal (Same as Transfer Page) */}
+                {/* Password Security Modal */}
                 {showPassModal && (
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, backdropFilter: 'blur(8px)' }}>
                         <div style={{ background: '#0a1622', width: '90%', maxWidth: '400px', padding: '30px', borderRadius: '28px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>

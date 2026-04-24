@@ -207,7 +207,7 @@ export const QuickServices = () => {
         { name: 'M-Tag', icon: <Car size={22} />, href: '/m-tag', desc: ' Recharge', color: '#3b82f6' },
         { name: 'Bundles', icon: <Smartphone size={22} />, href: '/bundles', desc: ' Mobile Data', color: '#8b5cf6' },
         { name: 'Electricity', icon: <Zap size={22} />, href: '/electricity-bills', desc: ' Bill Pay', color: '#f59e0b' },
-        { name: 'Internet', icon: <Globe size={22} />, href: '', desc: ' Fiber/4G', color: '#10b981' },
+        { name: 'Internet', icon: <Globe size={22} />, href: '/internet-bills', desc: ' Fiber/4G', color: '#10b981' },
     ];
 
     return (
