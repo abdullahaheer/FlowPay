@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Toaster } from 'react-hot-toast';
 import InstallPWA from "../components/installPWA";
+import AuthGuard from "./authGuard";
 import type { Metadata, Viewport } from "next";
 
 // Viewport settings (Next.js 14+ standard)
@@ -37,6 +38,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body style={{ backgroundColor: '#001E3C', margin: 0 }}>
+        <AuthGuard>
         <Toaster 
           position="top-center" 
           containerStyle={{ zIndex: 10000 }}
@@ -52,6 +54,7 @@ export default function RootLayout({
         {children}
 
         <InstallPWA />
+        </AuthGuard>
       </body>
     </html>
   );
